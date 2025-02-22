@@ -12,15 +12,38 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Middleware
-app.use(express.json());
+// 1. Session Configuration
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "your-secret-key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      httpOnly: true,
+    },
+    name: "sessionId",
+  })
+);
+
+// 2. Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// 3. CORS Configuration
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://localhost:5174"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
+    optionsSuccessStatus: 200,
   })
 );
+
+// 4. Body Parsers
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Database connection
 const db = mysql.createConnection({
@@ -37,22 +60,167 @@ db.connect((err) => {
   }
   console.log("Connected to MySQL database");
 });
-// Get all users except role_id = 1 (admin)
+
+// Passport Configuration
+passport.serializeUser((user, done) => {
+  done(null, user.email);
+});
+
+passport.deserializeUser((email, done) => {
+  db.query(
+    "SELECT * FROM tbl_users WHERE email = ?",
+    [email],
+    (err, results) => {
+      if (err) return done(err);
+      done(null, results[0]);
+    }
+  );
+});
+
+// Google Strategy Configuration
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "http://localhost:5000/auth/google/callback",
+    },
+    async function (accessToken, refreshToken, profile, done) {
+      try {
+        if (!profile.emails || !profile.emails[0].value) {
+          return done(new Error("No email found in Google profile"));
+        }
+
+        const userEmail = profile.emails[0].value;
+
+        db.query(
+          "SELECT * FROM tbl_users WHERE email = ?",
+          [userEmail],
+          async (err, results) => {
+            if (err) {
+              console.error("Database error:", err);
+              return done(err);
+            }
+
+            try {
+              if (results.length > 0) {
+                const user = results[0];
+                await new Promise((resolve, reject) => {
+                  db.query(
+                    "UPDATE tbl_users SET last_login = NOW() WHERE email = ?",
+                    [user.id],
+                    (err) => {
+                      if (err) reject(err);
+                      else resolve();
+                    }
+                  );
+                });
+                return done(null, user);
+              } else {
+                const newUser = {
+                  name: profile.displayName,
+                  email: userEmail,
+                  role_id: 3,
+                  status: 1,
+                  created_at: new Date(),
+                  google_id: profile.id,
+                };
+
+                db.query(
+                  "INSERT INTO tbl_users SET ?",
+                  newUser,
+                  (err, result) => {
+                    if (err) return done(err);
+                    newUser.id = result.insertId;
+                    return done(null, newUser);
+                  }
+                );
+              }
+            } catch (error) {
+              return done(error);
+            }
+          }
+        );
+      } catch (error) {
+        return done(error);
+      }
+    }
+  )
+);
+
+// Auth Status Endpoint
+app.get("/auth/status", (req, res) => {
+  if (req.isAuthenticated()) {
+    const redirectUrl = getRedirectUrl(req.user.role_id);
+    res.json({
+      authenticated: true,
+      user: {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email,
+        role_id: req.user.role_id,
+      },
+      redirectUrl,
+    });
+  } else {
+    res.json({ authenticated: false });
+  }
+});
+
+// Google Auth Routes
+app.get(
+  "/auth/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+app.get(
+  "/auth/google/callback",
+  (req, res, next) => {
+    passport.authenticate("google", {
+      failureRedirect: "http://localhost:5173/login",
+      failureFlash: true,
+    })(req, res, next);
+  },
+  (req, res) => {
+    try {
+      const redirectUrl = getRedirectUrl(req.user.role_id);
+      res.redirect(`http://localhost:5173${redirectUrl}`);
+    } catch (error) {
+      console.error("Redirect error:", error);
+      res.redirect("http://localhost:5173/login");
+    }
+  }
+);
+
+// Helper function to get redirect URL based on role
+function getRedirectUrl(roleId) {
+  switch (parseInt(roleId)) {
+    case 1:
+      return "/admin";
+    case 2:
+      return "/business_profile";
+    case 3:
+      return "/userDashboard";
+    default:
+      return "/dashboard";
+  }
+}
+
+// Get all users except admins
 app.get("/users", (req, res) => {
-  const sql = "SELECT * FROM tbl_users WHERE role_id != 1"; // Exclude admin users
+  const sql = "SELECT * FROM tbl_users WHERE role_id != 1";
   db.query(sql, (err, result) => {
     if (err) {
       console.error("Database error:", err);
       return res.status(500).json({ error: "Database error" });
     }
-
     res.json(result);
   });
 });
 
 // Add new user
 app.post("/add_user", (req, res) => {
-  const { name, email, password, phone, role_id = 3 } = req.body; // Default role_id to 3 (regular user)
+  const { name, email, password, phone, role_id = 3 } = req.body;
   if (!name || !email || !password || !phone) {
     return res
       .status(400)
@@ -79,7 +247,6 @@ app.post("/add_user", (req, res) => {
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
-  // Input validation
   if (!email || !password) {
     return res.status(400).json({
       success: false,
@@ -88,7 +255,6 @@ app.post("/login", async (req, res) => {
   }
 
   try {
-    // First, check if user exists and is active
     const sql = "SELECT * FROM tbl_users WHERE email = ? AND status = '1'";
 
     db.query(sql, [email], async (err, results) => {
@@ -109,16 +275,6 @@ app.post("/login", async (req, res) => {
 
       const user = results[0];
 
-      // Compare passwords
-      // const isMatch = await bcrypt.compare(password, user.password);
-      // if (!isMatch) {
-      //   return res.status(401).json({
-      //     success: false,
-      //     message: "Invalid email or password",
-      //   });
-      // }
-
-      // Generate JWT token
       const token = jwt.sign(
         {
           email: user.email,
@@ -128,23 +284,8 @@ app.post("/login", async (req, res) => {
         { expiresIn: "24h" }
       );
 
-      // Determine redirect URL based on user role
-      let redirectUrl = "/dashboard";
-      switch (parseInt(user.role_id)) {
-        case 1:
-          redirectUrl = "/admin";
-          break;
-        case 2:
-          redirectUrl = "/business_profile";
-          break;
-        case 3:
-          redirectUrl = "/userDashboard";
-          break;
-        default:
-          redirectUrl = "/dashboard";
-      }
+      const redirectUrl = getRedirectUrl(parseInt(user.role_id));
 
-      // Send success response
       return res.json({
         success: true,
         message: "Login successful",
@@ -178,7 +319,6 @@ app.post("/forgot-password", async (req, res) => {
   }
 
   try {
-    // Check if user exists
     db.query(
       "SELECT * FROM tbl_users WHERE email = ?",
       [email],
@@ -198,13 +338,11 @@ app.post("/forgot-password", async (req, res) => {
           });
         }
 
-        // Generate reset token
         const resetToken = jwt.sign({ email }, process.env.JWT_SECRET, {
           expiresIn: "1h",
         });
 
-        // Save token in database
-        const tokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+        const tokenExpiry = new Date(Date.now() + 3600000);
 
         db.query(
           "UPDATE tbl_users SET reset_token = ?, token_expiry = ? WHERE email = ?",
@@ -218,7 +356,6 @@ app.post("/forgot-password", async (req, res) => {
               });
             }
 
-            // Send email
             const transporter = nodemailer.createTransport({
               service: "gmail",
               auth: {
@@ -234,18 +371,16 @@ app.post("/forgot-password", async (req, res) => {
               to: email,
               subject: "Password Reset Request",
               html: `
-              <h2>Password Reset Request</h2>
-              <p>Click the link below to reset your password:</p>
-              <a href="${resetLink}">${resetLink}</a>
-              <p>This link will expire in 1 hour.</p>
-              <p>If you didn't request this, please ignore this email.</p>
-            `,
+                <h2>Password Reset Request</h2>
+                <p>Click the link below to reset your password:</p>
+                <a href="${resetLink}">${resetLink}</a>
+                <p>This link will expire in 1 hour.</p>
+                <p>If you didn't request this, please ignore this email.</p>
+              `,
             };
 
             transporter.sendMail(mailOptions, (emailErr) => {
               if (emailErr) {
-                console.log(process.env.EMAIL_USER);
-                console.log(process.env.EMAIL_PASS);
                 console.error("Email sending error:", emailErr);
                 return res.status(500).json({
                   success: false,
@@ -284,10 +419,8 @@ app.post("/reset-password/:token", async (req, res) => {
   }
 
   try {
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Check token in database
     db.query(
       "SELECT * FROM tbl_users WHERE email = ? AND reset_token = ? AND token_expiry > NOW()",
       [decoded.email, token],
@@ -307,11 +440,9 @@ app.post("/reset-password/:token", async (req, res) => {
           });
         }
 
-        // Hash new password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Update password and clear reset token
         db.query(
           "UPDATE tbl_users SET password = ?, reset_token = NULL, token_expiry = NULL WHERE email = ?",
           [hashedPassword, decoded.email],
@@ -340,71 +471,28 @@ app.post("/reset-password/:token", async (req, res) => {
     });
   }
 });
-
-//user google sign in
-app.use(
-  session({ secret: "123456789", resave: false, saveUninitialized: true })
-);
-app.use(passport.initialize());
-app.use(passport.session());
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "http://localhost:5000/auth/google/callback",
-    },
-    function (accessToken, refreshToken, profile, done) {
-      const userEmail = profile.emails[0].value;
-      //
-      db.query(
-        "SELECT * FROM tbl_users WHERE email = ?",
-        [userEmail],
-        (err, results) => {
-          if (err) {
-            return done(err);
-          }
-          if (results.length > 0) {
-            // User exists, return user
-            return done(null, results[0]);
-          } else {
-            // Create a new user record. You can add additional fields if needed.
-            const newUser = {
-              name: profile.displayName,
-              email: userEmail,
-              // Optionally, you can store the googleId or other info:
-              // googleId: profile.id,
-            };
-            db.query("INSERT INTO tbl_users SET ?", newUser, (err, result) => {
-              if (err) {
-                return done(err);
-              }
-              newUser.id = result.insertId;
-              return done(null, newUser);
-            });
-          }
-        }
-      );
+app.get("/logout", (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      console.error("Logout error:", err);
+      return res.status(500).json({ message: "Logout failed" });
     }
-  )
-);
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Session destruction error:", err);
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.clearCookie("sessionId"); // Adjust the cookie name if needed
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+});
 
-passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((obj, done) => done(null, obj));
-
-// Google Auth Routes
-app.get(
-  "/auth/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
-);
-
-app.get(
-  "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/login" }),
-  (req, res) => {
-    res.redirect("http://localhost:5173/login"); // Change port if needed for your Vite server
-  }
-);
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("Error:", err);
+  res.status(500).redirect("http://localhost:5173/login");
+});
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);

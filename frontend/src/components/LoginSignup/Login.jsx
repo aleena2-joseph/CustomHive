@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 import axios from "axios";
 import logo from "../Products/Navbar/logo.png";
 import backgroundImage from "../../assets/Img/bg1.webp";
 import { Link } from "react-router-dom";
+import { FcGoogle } from "react-icons/fc";
 
 const Login = ({ setUser }) => {
   const [formData, setFormData] = useState({
@@ -64,6 +65,28 @@ const Login = ({ setUser }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+  useEffect(() => {
+    // Check for authentication status on component mount
+    const checkAuth = async () => {
+      try {
+        const response = await axios.get("http://localhost:5000/auth/status", {
+          withCredentials: true,
+        });
+        if (response.data.user) {
+          setUser(response.data.user);
+          navigate(response.data.redirectUrl);
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+      }
+    };
+
+    checkAuth();
+  }, [setUser, navigate]);
+
+  const handleGoogleLogin = () => {
+    window.location.href = "http://localhost:5000/auth/google";
   };
 
   return (
@@ -150,6 +173,9 @@ const Login = ({ setUser }) => {
               </p>
             </div>
           </form>
+          <button onClick={handleGoogleLogin}>
+            <FcGoogle />
+          </button>
         </div>
       </div>
     </div>

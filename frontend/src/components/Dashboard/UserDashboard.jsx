@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 import logo from "../Products/Navbar/logo.png";
-
+import axios from "axios";
 import Hero from "../Hero/Hero";
 import Products from "../Products/Products";
 import TopProducts from "../TopProducts/TopProducts";
@@ -9,12 +9,25 @@ import TopProducts from "../TopProducts/TopProducts";
 const UserDashboard = ({ user, setUser }) => {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem("user"); // Ensure the correct key is removed
+  // const handleLogout = () => {
+  //   localStorage.removeItem("user");
+  //   setUser(null);
+  //   setTimeout(() => {
+  //     navigate("/login");
+  //   }, 100);
+  const handleLogout = async () => {
+    try {
+      // Make a request to your server to log out
+      await axios.get("http://localhost:5000/logout", {
+        withCredentials: true,
+      });
+    } catch (error) {
+      console.error("Server logout error:", error);
+    }
+    // Clear client-side state and local storage
+    localStorage.removeItem("user");
     setUser(null);
-    setTimeout(() => {
-      navigate("/login");
-    }, 100);
+    navigate("/login");
   };
 
   return (
