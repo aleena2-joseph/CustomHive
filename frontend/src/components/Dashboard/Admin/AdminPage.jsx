@@ -38,7 +38,7 @@ const Sidebar = () => {
         </li>
         <li>
           <Link
-            to="/admin/userlist"
+            to="/userlist"
             className="block py-2 px-4 rounded-md hover:bg-primary/80"
           >
             User List

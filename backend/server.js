@@ -493,7 +493,37 @@ app.use((err, req, res, next) => {
   console.error("Error:", err);
   res.status(500).redirect("http://localhost:5173/login");
 });
+app.post("/add-business-type", (req, res) => {
+  const { type_name } = req.body;
 
+  if (!type_name) {
+    return res.status(400).json({ error: "Business type name is required" });
+  }
+
+  const sql = "INSERT INTO business_type (type_name) VALUES (?)";
+  db.query(sql, [type_name], (err, result) => {
+    if (err) {
+      console.error("Error inserting business type:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.status(201).json({
+      message: "Business type added successfully!",
+      id: result.insertId,
+    });
+  });
+});
+//Get business type
+
+app.get("/api/business-types", (req, res) => {
+  const sql = "SELECT * FROM business_type";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching business types:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

@@ -6,10 +6,10 @@ import Login from "./components/LoginSignup/Login";
 import Signup from "./components/LoginSignup/Signup";
 import UserDashboard from "./components/Dashboard/UserDashboard";
 import BusinessProfile from "./components/Dashboard/Business_profile"; // Corrected naming
-import AdminPage from "./components/Dashboard/Admin/AdminPage";
+import Overview from "../../frontend/src/components/Dashboard/Admin/Overview";
 import Home from "./components/Dashboard/Home";
 import UserList from "./components/Dashboard/Admin/UserList";
-import Overview from "../../frontend/src/components/Dashboard/Admin/Overview";
+import Category from "./components/Dashboard/Admin/Category";
 import ForgotPassword from "./components/LoginSignup/ForgotPassword";
 import ResetPassword from "./components/LoginSignup/ResetPassword";
 
@@ -64,12 +64,10 @@ const App = () => {
         <Route path="/business_profile" element={<BusinessProfile />} />
 
         {/* Admin Panel - Nested Routing */}
-        <Route path="/admin" element={<AdminPage />} />
-
-        {/* Move /userlist inside Admin Panel */}
-        {/* This ensures the sidebar and navbar remain when navigating */}
+        <Route path="/admin" element={<Navigate to="/admin/overview" />} />
+        <Route path="/admin/overview" element={<Overview />} />
         <Route path="/admin/userlist" element={<UserList />} />
-        <Route path="/overview" element={<Overview />} />
+        <Route path="/admin/category" element={<Category />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
       </Routes>
