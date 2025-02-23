@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import Sidebar from "../../Hero/Sidebar";
 import axios from "axios";
+import PropTypes from "prop-types";
 
-const Category = () => {
+const Category = ({ setUser }) => {
   const [typeName, setTypeName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -53,7 +54,7 @@ const Category = () => {
 
   return (
     <div style={{ display: "flex" }}>
-      <Sidebar />
+      <Sidebar setUser={setUser} />
       <div style={{ flex: 1, padding: "20px", marginLeft: "250px" }}>
         <div className="p-5">
           <h2 className="text-3xl font-bold mb-6 text-gray-700">Category</h2>
@@ -118,6 +119,9 @@ const Category = () => {
       </div>
     </div>
   );
+};
+Category.propTypes = {
+  setUser: PropTypes.func.isRequired,
 };
 
 export default Category;
