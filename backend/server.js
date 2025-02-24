@@ -8,6 +8,7 @@ const nodemailer = require("nodemailer");
 const passport = require("passport");
 const session = require("express-session");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const validator = require("validator");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -219,28 +220,77 @@ app.get("/users", (req, res) => {
 });
 
 // Add new user
-app.post("/add_user", (req, res) => {
+app.post("/add_user", async (req, res) => {
   const { name, email, password, phone, role_id = 3 } = req.body;
+
+  // Validation: Check if all fields are provided
   if (!name || !email || !password || !phone) {
-    return res
-      .status(400)
-      .json({ success: false, message: "All fields are required" });
-  }
-  const sql =
-    "INSERT INTO tbl_users (name, email, password, phone, role_id) VALUES (?, ?, ?, ?, ?)";
-  db.query(sql, [name, email, password, phone, role_id], (err, result) => {
-    if (err) {
-      console.error("Database error:", err);
-      return res
-        .status(500)
-        .json({ success: false, message: "Database error: " + err.message });
-    }
-    return res.json({
-      success: true,
-      message: "User added successfully",
-      id: result.insertId,
+    return res.status(400).json({
+      success: false,
+      message: "All fields are required",
     });
-  });
+  }
+
+  // Email validation
+  if (!validator.isEmail(email)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid email format",
+    });
+  }
+
+  // Password validation: Must contain at least one number, one special character, and no spaces
+  const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[A-Za-z0-9!@#$%^&*]{6,}$/;
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Password must be at least 6 characters long, include at least one number, one special character, and have no spaces",
+    });
+  }
+
+  // Phone number validation
+  const phoneRegex = /^[6789]\d{9}$/;
+  if (!phoneRegex.test(phone)) {
+    return res.status(400).json({
+      success: false,
+      message: "Phone number must be 10 digits and start with 6, 7, 8, or 9",
+    });
+  }
+
+  try {
+    // Hash the password before storing it
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const sql =
+      "INSERT INTO tbl_users (name, email, password, phone, role_id) VALUES (?, ?, ?, ?, ?)";
+
+    db.query(
+      sql,
+      [name, email, hashedPassword, phone, role_id],
+      (err, result) => {
+        if (err) {
+          console.error("Database error:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Database error: " + err.message,
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: "User added successfully",
+          id: result.insertId,
+        });
+      }
+    );
+  } catch (error) {
+    console.error("Error hashing password:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 });
 
 // Login route
@@ -275,6 +325,16 @@ app.post("/login", async (req, res) => {
 
       const user = results[0];
 
+      // Compare hashed password with user input
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      if (!passwordMatch) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid email or password",
+        });
+      }
+
+      // Generate JWT token
       const token = jwt.sign(
         {
           email: user.email,
@@ -407,14 +467,34 @@ app.post("/forgot-password", async (req, res) => {
 });
 
 // Reset password route
+
 app.post("/reset-password/:token", async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
+
+  // Password validation regex
+  const passwordRegex =
+    /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
 
   if (!password) {
     return res.status(400).json({
       success: false,
       message: "New password is required",
+    });
+  }
+
+  if (password.includes(" ")) {
+    return res.status(400).json({
+      success: false,
+      message: "Password must not contain spaces",
+    });
+  }
+
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Password must be at least 6 characters long, contain at least one number, one special character, and one letter",
     });
   }
 
@@ -471,6 +551,7 @@ app.post("/reset-password/:token", async (req, res) => {
     });
   }
 });
+
 app.get("/logout", (req, res) => {
   req.logout((err) => {
     if (err) {

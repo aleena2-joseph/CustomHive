@@ -173,9 +173,24 @@ const Login = ({ setUser }) => {
               </p>
             </div>
           </form>
-          <button onClick={handleGoogleLogin}>
-            <FcGoogle />
-          </button>
+
+          {/* OR Divider */}
+          <div className="flex items-center justify-center my-4">
+            <div className="border-b border-gray-300 w-full"></div>
+            <span className="px-2 text-gray-500 text-sm">OR</span>
+            <div className="border-b border-gray-300 w-full"></div>
+          </div>
+
+          {/* Google Login Button */}
+          <div className="flex justify-center">
+            <button
+              onClick={handleGoogleLogin}
+              className="flex items-center gap-3 px-4 py-2 w-64 border border-gray-300 bg-white text-gray-700 rounded-lg shadow-md hover:bg-gray-100 focus:ring-2 focus:ring-blue-500 transition duration-300 text-base"
+            >
+              <FcGoogle className="text-2xl" />
+              <span className="font-medium">Continue with Google</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
