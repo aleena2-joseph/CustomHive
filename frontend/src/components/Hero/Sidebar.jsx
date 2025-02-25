@@ -36,8 +36,21 @@ const Sidebar = ({ setUser }) => {
           </Link>
         </li>
         <li>
+          <Link
+            to="/admin/business_types"
+            className="block p-2 hover:bg-primary"
+          >
+            Business Types
+          </Link>
+        </li>
+        <li>
           <Link to="/admin/category" className="block p-2 hover:bg-primary">
             Category
+          </Link>
+        </li>
+        <li>
+          <Link to="/admin/subcategory" className="block p-2 hover:bg-primary">
+            Subcategory
           </Link>
         </li>
       </ul>

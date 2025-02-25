@@ -13,7 +13,6 @@ const validator = require("validator");
 const app = express();
 const port = process.env.PORT || 5000;
 
-// 1. Session Configuration
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "your-secret-key",
@@ -21,18 +20,16 @@ app.use(
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === "production",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 24 * 60 * 60 * 1000,
       httpOnly: true,
     },
     name: "sessionId",
   })
 );
 
-// 2. Initialize Passport
 app.use(passport.initialize());
 app.use(passport.session());
 
-// 3. CORS Configuration
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://localhost:5174"],
@@ -42,7 +39,6 @@ app.use(
   })
 );
 
-// 4. Body Parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -306,6 +302,25 @@ app.post("/add_user", async (req, res) => {
       message: "Internal server error",
     });
   }
+});
+// Update User Status API
+app.put("/update_status/:email", (req, res) => {
+  const { email } = req.params;
+  const { status } = req.body;
+
+  const sql = "UPDATE tbl_users SET status = ? WHERE email = ?";
+  db.query(sql, [status, email], (err, result) => {
+    if (err) {
+      console.error("Error updating status:", err);
+      return res.status(500).json({ message: "Database error" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.json({ message: "Status updated successfully" });
+  });
 });
 
 // Login route
@@ -578,7 +593,7 @@ app.get("/logout", (req, res) => {
         console.error("Session destruction error:", err);
         return res.status(500).json({ message: "Logout failed" });
       }
-      res.clearCookie("sessionId"); // Adjust the cookie name if needed
+      res.clearCookie("sessionId");
       res.json({ message: "Logged out successfully" });
     });
   });
@@ -589,6 +604,8 @@ app.use((err, req, res, next) => {
   console.error("Error:", err);
   res.status(500).redirect("http://localhost:5173/login");
 });
+
+// Add a new business type
 app.post("/add-business-type", (req, res) => {
   const { type_name } = req.body;
 
@@ -596,22 +613,38 @@ app.post("/add-business-type", (req, res) => {
     return res.status(400).json({ error: "Business type name is required" });
   }
 
-  const sql = "INSERT INTO business_type (type_name) VALUES (?)";
+  const sql = "INSERT INTO business_types (type_name) VALUES (?)";
   db.query(sql, [type_name], (err, result) => {
     if (err) {
       console.error("Error inserting business type:", err);
-      return res.status(500).json({ error: "Duplicate entry not allowed" });
+      return res
+        .status(500)
+        .json({ error: "Duplicate entry not allowed or database error" });
     }
-    res.status(201).json({
-      message: "Business type added successfully!",
-      id: result.insertId,
-    });
+
+    // Fetch all business types in ascending order
+    db.query(
+      "SELECT * FROM business_types ORDER BY business_id ASC",
+      (err, businessTypes) => {
+        if (err) {
+          console.error("Error fetching business types:", err);
+          return res
+            .status(500)
+            .json({ error: "Error retrieving business types" });
+        }
+        res.status(201).json({
+          message: "Business type added successfully!",
+          business_id: result.insertId,
+          businessTypes,
+        });
+      }
+    );
   });
 });
-//Get business type
 
+// Get all business types in ascending order
 app.get("/api/business-types", (req, res) => {
-  const sql = "SELECT * FROM business_type";
+  const sql = "SELECT * FROM business_types ORDER BY business_id ASC";
   db.query(sql, (err, results) => {
     if (err) {
       console.error("Error fetching business types:", err);
@@ -620,6 +653,154 @@ app.get("/api/business-types", (req, res) => {
     res.json(results);
   });
 });
+
+// Update Business Type
+app.put("/update-business-type/:business_id", (req, res) => {
+  const { business_id } = req.params;
+  const { type_name } = req.body;
+
+  if (!type_name) {
+    return res.status(400).json({ error: "Business type name is required" });
+  }
+
+  const sql = "UPDATE business_types SET type_name = ? WHERE business_id = ?";
+  db.query(sql, [type_name, business_id], (err, result) => {
+    if (err) {
+      console.error("Error updating business type:", err);
+      return res.status(500).json({ error: "Error updating business type" });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Business type not found" });
+    }
+    res.json({ message: "Business type updated successfully!" });
+  });
+});
+// Endpoint to add a category
+app.post("/api/add-category", (req, res) => {
+  const { business_id, category_name, description } = req.body;
+
+  if (!business_id || !category_name) {
+    return res
+      .status(400)
+      .json({ error: "Business type and category name are required" });
+  }
+
+  const sql =
+    "INSERT INTO categories (business_id, category_name, description) VALUES (?, ?, ?)";
+  db.query(
+    sql,
+    [business_id, category_name, description || ""],
+    (err, result) => {
+      if (err) {
+        console.error("Error inserting category:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      res
+        .status(201)
+        .json({ message: "Category added successfully!", id: result.insertId });
+    }
+  );
+});
+
+// Fetch all categories
+app.get("/api/categories", (req, res) => {
+  const sql = `
+    SELECT c.category_id, c.category_name, c.description, b.business_id, b.type_name 
+    FROM categories c
+    JOIN business_types b ON c.business_id = b.business_id
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Database Error:", err);
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
+    res.json({ data: results });
+  });
+});
+
+// Add subcategory
+app.post("/api/add-subcategory", (req, res) => {
+  const { category_id, subcategory_name, description } = req.body;
+
+  if (!category_id || !subcategory_name) {
+    return res
+      .status(400)
+      .json({ error: "Category and subcategory name are required" });
+  }
+
+  const sql =
+    "INSERT INTO subcategories (category_id, subcategory_name, description) VALUES (?, ?, ?)";
+  db.query(
+    sql,
+    [category_id, subcategory_name, description || ""],
+    (err, result) => {
+      if (err) {
+        console.error("Error inserting subcategory:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      res.status(201).json({
+        message: "Subcategory added successfully!",
+        id: result.insertId,
+      });
+    }
+  );
+});
+
+// Fetch all subcategories
+app.get("/api/subcategories", (req, res) => {
+  const sql = `
+    SELECT s.subcategory_id, s.subcategory_name, s.description, c.category_id, c.category_name 
+    FROM subcategories s
+    JOIN categories c ON s.category_id = c.category_id
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Database Error:", err);
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
+    res.json({ data: results });
+  });
+});
+// Fetch products
+app.get("/api/products", (req, res) => {
+  db.query("SELECT * FROM Products", (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
+  });
+});
+
+// Fetch subcategories
+app.get("/api/subcategories", (req, res) => {
+  db.query("SELECT * FROM subcategories", (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
+  });
+});
+
+// Add a new product
+app.post("/api/products", (req, res) => {
+  const { name, description, price, subcategory_id } = req.body;
+  const product_id = uuidv4();
+
+  db.query(
+    "INSERT INTO Products (Product_id, Product_name, Description, Price, Subcategory_id) VALUES (?, ?, ?, ?, ?)",
+    [product_id, name, description, price, subcategory_id],
+    (err) => {
+      if (err) return res.status(500).send(err);
+      res.json({
+        Product_id: product_id,
+        name,
+        description,
+        price,
+        subcategory_id,
+        Status: 1,
+      });
+    }
+  );
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

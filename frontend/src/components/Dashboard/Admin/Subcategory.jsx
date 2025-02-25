@@ -1,85 +1,78 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "../../Hero/Sidebar";
 import PropTypes from "prop-types";
 import axios from "axios";
 
-const Category = ({ setUser }) => {
-  const [businessTypes, setBusinessTypes] = useState([]);
-  const [selectedBusiness, setSelectedBusiness] = useState("");
-  const [categoryName, setCategoryName] = useState("");
-  const [description, setDescription] = useState("");
+const SubCategory = ({ setUser }) => {
   const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [subCategoryName, setSubCategoryName] = useState("");
+  const [description, setDescription] = useState("");
+  const [subCategories, setSubCategories] = useState([]);
 
-  // Function to fetch categories
-  const fetchCategories = useCallback(async () => {
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await axios.get(
+          "http://localhost:5000/api/categories"
+        );
+        if (response.data && Array.isArray(response.data.data)) {
+          setCategories(response.data.data);
+        } else {
+          console.error("Unexpected API response format:", response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error.message);
+      }
+    };
+
+    fetchCategories();
+    fetchSubCategories();
+  }, []);
+
+  // Fetch subcategories
+  const fetchSubCategories = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/categories");
-
+      const response = await axios.get(
+        "http://localhost:5000/api/subcategories"
+      );
       if (response.data && Array.isArray(response.data.data)) {
-        setCategories(response.data.data);
+        setSubCategories(response.data.data);
       } else {
         console.error("Unexpected API response format:", response.data);
       }
     } catch (error) {
-      console.error("Error fetching categories:", error.message);
-      if (error.response) {
-        console.error("Server responded with:", error.response.data);
-      }
+      console.error("Error fetching subcategories:", error.message);
     }
-  }, []);
-
-  // Fetch business types and categories when component mounts
-  useEffect(() => {
-    const fetchBusinessTypes = async () => {
-      try {
-        const response = await axios.get(
-          "http://localhost:5000/api/business-types"
-        );
-
-        if (response.data && Array.isArray(response.data)) {
-          setBusinessTypes(response.data);
-        } else {
-          console.error("Unexpected API response format for business types");
-        }
-      } catch (error) {
-        console.error("Error fetching business types:", error);
-      }
-    };
-
-    fetchBusinessTypes();
-    fetchCategories();
-  }, [fetchCategories]);
+  };
 
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!selectedBusiness || !categoryName.trim()) {
-      alert("Please select a business type and enter a category name.");
+    if (!selectedCategory || !subCategoryName.trim()) {
+      alert("Please select a category and enter a subcategory name.");
       return;
     }
 
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/add-category",
+        "http://localhost:5000/api/add-subcategory",
         {
-          business_id: selectedBusiness,
-          category_name: categoryName.trim(),
+          category_id: selectedCategory,
+          subcategory_name: subCategoryName.trim(),
           description: description.trim(),
         }
       );
 
       alert(response.data.message);
-
-      // Reset form fields
-      setCategoryName("");
+      setSubCategoryName("");
       setDescription("");
-      setSelectedBusiness("");
-
-      // Refresh categories list
-      fetchCategories();
+      setSelectedCategory("");
+      fetchSubCategories();
     } catch (error) {
-      console.error("Error adding category:", error);
+      console.error("Error adding subcategory:", error);
     }
   };
 
@@ -89,46 +82,43 @@ const Category = ({ setUser }) => {
       <div className="flex-1 p-6 ml-[250px]">
         <div className="max-w-2xl mx-auto bg-white shadow-lg rounded-lg p-6">
           <h2 className="text-2xl font-bold text-gray-700 mb-4">
-            Add Category
+            Add Subcategory
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Dropdown to select business type */}
             <div>
               <label className="block text-sm font-medium text-gray-600">
-                Business Type:
+                Category:
               </label>
               <select
-                value={selectedBusiness}
-                onChange={(e) => setSelectedBusiness(e.target.value)}
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
                 className="w-full p-2 mt-1 border border-gray-300 rounded-lg focus:ring focus:ring-blue-300 focus:outline-none"
               >
-                <option value="">Select a business type</option>
-                {businessTypes.map((business) => (
+                <option value="">Select a category</option>
+                {categories.map((category) => (
                   <option
-                    key={business.business_id}
-                    value={business.business_id}
+                    key={category.category_id}
+                    value={category.category_id}
                   >
-                    {business.type_name}
+                    {category.category_name}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Category Name Input */}
             <div>
               <label className="block text-sm font-medium text-gray-600">
-                Category Name:
+                Subcategory Name:
               </label>
               <input
                 type="text"
-                value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
-                placeholder="Enter category name"
+                value={subCategoryName}
+                onChange={(e) => setSubCategoryName(e.target.value)}
+                placeholder="Enter subcategory name"
                 className="w-full p-2 mt-1 border border-gray-300 rounded-lg focus:ring focus:ring-blue-300 focus:outline-none"
               />
             </div>
 
-            {/* Description Input */}
             <div>
               <label className="block text-sm font-medium text-gray-600">
                 Description:
@@ -136,71 +126,67 @@ const Category = ({ setUser }) => {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Enter category description (optional)"
+                placeholder="Enter subcategory description (optional)"
                 className="w-full p-2 mt-1 border border-gray-300 rounded-lg focus:ring focus:ring-blue-300 focus:outline-none"
               />
             </div>
 
-            {/* Submit Button (Disabled if fields are empty) */}
             <div>
               <button
                 type="submit"
                 className={`w-full text-white font-bold py-2 px-4 rounded-lg transition ${
-                  !selectedBusiness || !categoryName.trim()
+                  !selectedCategory || !subCategoryName.trim()
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-blue-500 hover:bg-blue-600"
                 }`}
-                disabled={!selectedBusiness || !categoryName.trim()}
+                disabled={!selectedCategory || !subCategoryName.trim()}
               >
-                Add Category
+                Add Subcategory
               </button>
             </div>
           </form>
         </div>
 
-        {/* Display Category List */}
         <div className="max-w-2xl mx-auto bg-white shadow-lg rounded-lg p-6 mt-6">
           <h2 className="text-xl font-bold text-gray-700 mb-4">
-            Category List
+            Subcategory List
           </h2>
-          {categories.length > 0 ? (
+          {subCategories.length > 0 ? (
             <table className="w-full border-collapse border border-gray-200">
               <thead>
                 <tr className="bg-gray-200 text-left">
                   <th className="border border-gray-300 px-4 py-2">
-                    Category Name
+                    Subcategory Name
                   </th>
-                  <th className="border border-gray-300 px-4 py-2">
-                    Business Type
-                  </th>
+                  <th className="border border-gray-300 px-4 py-2">Category</th>
                   <th className="border border-gray-300 px-4 py-2">
                     Description
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {categories.map((category) => (
+                {subCategories.map((subCategory) => (
                   <tr
-                    key={category.category_id}
+                    key={subCategory.subcategory_id}
                     className="border border-gray-300 hover:bg-gray-100"
                   >
                     <td className="border border-gray-300 px-4 py-2">
-                      {category.category_name}
+                      {subCategory.subcategory_name}
                     </td>
                     <td className="border border-gray-300 px-4 py-2">
-                      {businessTypes.find(
-                        (b) => b.business_id === category.business_id
-                      )?.type_name || "Unknown"}
+                      {categories.find(
+                        (c) => c.category_id === subCategory.category_id
+                      )?.category_name || "Unknown"}
                     </td>
                     <td className="border border-gray-300 px-4 py-2">
-                      {category.description || "N/A"}
+                      {subCategory.description || "N/A"}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <p className="text-gray-600 text-center">No categories found.</p>
+            <p className="text-gray-600 text-center">No subcategories found.</p>
           )}
         </div>
       </div>
@@ -208,8 +194,8 @@ const Category = ({ setUser }) => {
   );
 };
 
-Category.propTypes = {
+SubCategory.propTypes = {
   setUser: PropTypes.func.isRequired,
 };
 
-export default Category;
+export default SubCategory;

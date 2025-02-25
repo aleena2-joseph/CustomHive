@@ -9,9 +9,12 @@ import BusinessProfile from "./components/Dashboard/Business_profile";
 import Overview from "../../frontend/src/components/Dashboard/Admin/Overview";
 import Home from "./components/Dashboard/Home";
 import UserList from "./components/Dashboard/Admin/UserList";
-import Category from "./components/Dashboard/Admin/Category";
+import Business_types from "./components/Dashboard/Admin/Business_types";
 import ForgotPassword from "./components/LoginSignup/ForgotPassword";
 import ResetPassword from "./components/LoginSignup/ResetPassword";
+import Category from "./components/Dashboard/Admin/Category";
+import SubCategory from "./components/Dashboard/Admin/Subcategory";
+import ProfilePage from "./components/Dashboard/ProfilePage";
 
 const App = () => {
   const [user, setUser] = useState(() => {
@@ -67,10 +70,19 @@ const App = () => {
         <Route path="/admin/overview" element={<Overview />} />
         <Route path="/admin/userlist" element={<UserList />} />
         <Route
+          path="/admin/business_types"
+          element={<Business_types setUser={setUser} />}
+        />
+        <Route
           path="/admin/category"
           element={<Category setUser={setUser} />}
         />
+        <Route
+          path="/admin/subcategory"
+          element={<SubCategory setUser={setUser} />}
+        />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
       </Routes>
     </BrowserRouter>

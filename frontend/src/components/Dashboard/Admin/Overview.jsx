@@ -27,7 +27,6 @@ const Overview = () => {
         <div className="p-5 ml-60">
           <h2 className="text-3xl font-bold mb-6 text-gray-700">Overview</h2>
 
-          {/* Summary Cards */}
           <div className="grid grid-cols-3 gap-6 mb-8">
             <div className="bg-blue-500 text-white p-6 rounded-lg shadow-md">
               <h3 className="text-xl font-semibold">Total Users</h3>
