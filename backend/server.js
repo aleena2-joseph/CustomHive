@@ -231,6 +231,21 @@ app.post("/add_user", async (req, res) => {
     });
   }
 
+  if (name.trim().length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Name cannot be empty or just spaces",
+    });
+  }
+
+  const nameRegex = /^[A-Za-z\s]+$/;
+  if (!nameRegex.test(name.trim())) {
+    return res.status(400).json({
+      success: false,
+      message: "Name can only contain letters and spaces",
+    });
+  }
+
   // Email validation
   if (!validator.isEmail(email)) {
     return res.status(400).json({
@@ -585,7 +600,7 @@ app.post("/add-business-type", (req, res) => {
   db.query(sql, [type_name], (err, result) => {
     if (err) {
       console.error("Error inserting business type:", err);
-      return res.status(500).json({ error: "Database error" });
+      return res.status(500).json({ error: "Duplicate entry not allowed" });
     }
     res.status(201).json({
       message: "Business type added successfully!",
