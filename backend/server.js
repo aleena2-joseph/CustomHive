@@ -9,6 +9,9 @@ const passport = require("passport");
 const session = require("express-session");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const validator = require("validator");
+const { v4: uuidv4 } = require("uuid");
+const multer = require("multer");
+const path = require("path");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -41,6 +44,7 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); //image
 
 // Database connection
 const db = mysql.createConnection({
@@ -771,34 +775,77 @@ app.get("/api/products", (req, res) => {
   });
 });
 
-// Fetch subcategories
-app.get("/api/subcategories", (req, res) => {
-  db.query("SELECT * FROM subcategories", (err, results) => {
+// Set up Multer storage engine
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // Files will be saved in the "uploads" folder
+    cb(null, "uploads/");
+  },
+  filename: function (req, file, cb) {
+    // Generate a unique file name
+    const ext = path.extname(file.originalname);
+    cb(null, Date.now() + "-" + uuidv4() + ext);
+  },
+});
+
+// Initialize Multer with the storage configuration
+const upload = multer({ storage: storage });
+
+// Add a new product
+
+app.post("/api/products", upload.single("image"), (req, res) => {
+  const { name, description, price, subcategory_id } = req.body;
+  // Validate required fields
+  if (!name || !price || !subcategory_id) {
+    return res
+      .status(400)
+      .json({ error: "Product name, price, and subcategory_id are required" });
+  }
+
+  // Get image file path if file was uploaded
+  const imagePath = req.file ? req.file.path : null;
+
+  const sql = `
+    INSERT INTO products (Product_name, Description, Price, Subcategory_id, Status, Product_image)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  const status = 1; // default status (enabled)
+
+  db.query(
+    sql,
+    [name, description || "", price, subcategory_id, status, imagePath],
+    (err, result) => {
+      if (err) {
+        console.error("Error inserting product:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      res.status(201).json({
+        Product_id: result.insertId,
+        Product_name: name,
+        Description: description || "",
+        Price: price,
+        Subcategory_id: subcategory_id,
+        Status: status,
+        Product_image: imagePath,
+        message: "Product added successfully!",
+      });
+    }
+  );
+});
+
+// Example endpoint to fetch all products (adjust as needed)
+app.get("/api/products", (req, res) => {
+  db.query("SELECT * FROM products", (err, results) => {
     if (err) return res.status(500).send(err);
     res.json(results);
   });
 });
 
-// Add a new product
-app.post("/api/products", (req, res) => {
-  const { name, description, price, subcategory_id } = req.body;
-  const product_id = uuidv4();
-
-  db.query(
-    "INSERT INTO Products (Product_id, Product_name, Description, Price, Subcategory_id) VALUES (?, ?, ?, ?, ?)",
-    [product_id, name, description, price, subcategory_id],
-    (err) => {
-      if (err) return res.status(500).send(err);
-      res.json({
-        Product_id: product_id,
-        name,
-        description,
-        price,
-        subcategory_id,
-        Status: 1,
-      });
-    }
-  );
+app.get("/api/products", (req, res) => {
+  db.query("SELECT * FROM products", (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
+  });
 });
 
 app.listen(port, () => {

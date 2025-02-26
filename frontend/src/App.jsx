@@ -82,7 +82,7 @@ const App = () => {
           element={<SubCategory setUser={setUser} />}
         />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile" element={<ProfilePage setUser={setUser} />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
       </Routes>
     </BrowserRouter>
