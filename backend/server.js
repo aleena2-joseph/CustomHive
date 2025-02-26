@@ -1136,18 +1136,43 @@ app.put("/api/products/:id", (req, res) => {
   });
 });
 // Get all products from all users
+
+// app.get("/api/all-products", (req, res) => {
+//   const sql = `
+//     SELECT DISTINCT p.*, u.name AS seller_name,
+//     bt.type_name AS business_type,
+//     c.category_name,
+//     s.subcategory_name
+//     FROM products p
+//     LEFT JOIN tbl_users u ON p.email = u.email
+//     LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
+//     LEFT JOIN categories c ON s.category_id = c.category_id
+//     LEFT JOIN business_profile bp ON p.email = bp.email
+//     LEFT JOIN business_types bt ON bp.business_id = bt.business_id
+//     ORDER BY p.Product_id DESC
+//   `;
+
+//   db.query(sql, (err, results) => {
+//     if (err) {
+//       console.error("Database error:", err);
+//       return res.status(500).json({ error: "Database error" });
+//     }
+//     res.json(results);
+//   });
+// });
 app.get("/api/all-products", (req, res) => {
   const sql = `
-    SELECT p.*, u.name as seller_name, 
-    bt.type_name as business_type,
-    c.category_name, 
-    s.subcategory_name
+    SELECT p.*, u.name AS seller_name, 
+           MAX(bt.type_name) AS business_type, 
+           c.category_name, 
+           s.subcategory_name
     FROM products p
     LEFT JOIN tbl_users u ON p.email = u.email
     LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
     LEFT JOIN categories c ON s.category_id = c.category_id
     LEFT JOIN business_profile bp ON p.email = bp.email
     LEFT JOIN business_types bt ON bp.business_id = bt.business_id
+    GROUP BY p.Product_id, u.name, c.category_name, s.subcategory_name
     ORDER BY p.Product_id DESC
   `;
 
@@ -1159,6 +1184,7 @@ app.get("/api/all-products", (req, res) => {
     res.json(results);
   });
 });
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
