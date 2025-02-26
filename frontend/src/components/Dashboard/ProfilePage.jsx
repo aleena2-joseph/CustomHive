@@ -15,21 +15,44 @@ const ProfilePage = ({ setUser }) => {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [subcategories, setSubcategories] = useState([]);
   const [selectedSubcategory, setSelectedSubcategory] = useState("");
+
+  const navigate = useNavigate();
+
+  // Session: Initialize user from localStorage, then update from backend if needed.
   const [user, setUserState] = useState(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
-  const navigate = useNavigate();
 
-  // Product form state (added image property)
+  // If no user is stored, try to fetch session data from the backend.
+  useEffect(() => {
+    if (!user) {
+      axios
+        .get("http://localhost:5000/api/session", { withCredentials: true })
+        .then((response) => {
+          if (response.data.user) {
+            setUserState(response.data.user);
+            localStorage.setItem("user", JSON.stringify(response.data.user));
+            if (typeof setUser === "function") {
+              setUser(response.data.user);
+            }
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching session:", error);
+        });
+    }
+  }, [user, setUser]);
+
+  // Product form state (includes image for file upload)
   const [newProduct, setNewProduct] = useState({
     name: "",
     description: "",
     price: "",
-    image: null, // For storing the selected file
+    image: null,
   });
 
-  // Logout handler
+  // Logout handler: clear session from state and localStorage.
   const handleLogout = async () => {
     try {
       await axios.get("http://localhost:5000/logout", {
@@ -46,13 +69,13 @@ const ProfilePage = ({ setUser }) => {
     navigate("/login");
   };
 
-  // Helper function to extract an array from the response
+  // Helper: Convert API response into an array.
   const extractDataArray = (responseData) => {
     const data = responseData.data || responseData;
     return Array.isArray(data) ? data : [];
   };
 
-  // Fetch products and business types on mount
+  // Fetch products and business types on mount.
   useEffect(() => {
     axios
       .get("http://localhost:5000/api/products")
@@ -71,7 +94,7 @@ const ProfilePage = ({ setUser }) => {
       .catch((error) => console.error("Error fetching business types:", error));
   }, []);
 
-  // Fetch categories when a business type is selected
+  // Fetch categories when a business type is selected.
   useEffect(() => {
     if (selectedBusinessType) {
       axios
@@ -89,7 +112,7 @@ const ProfilePage = ({ setUser }) => {
     }
   }, [selectedBusinessType]);
 
-  // Fetch subcategories when a category is selected
+  // Fetch subcategories when a category is selected.
   useEffect(() => {
     if (selectedCategory) {
       axios
@@ -109,34 +132,42 @@ const ProfilePage = ({ setUser }) => {
     }
   }, [selectedCategory]);
 
-  // Handle product input changes for text fields
+  // Handle changes in text inputs.
   const handleProductChange = (e) => {
     setNewProduct({ ...newProduct, [e.target.name]: e.target.value });
   };
 
-  // Handle file input changes for image upload
+  // Handle file input changes.
   const handleFileChange = (e) => {
     setNewProduct({ ...newProduct, image: e.target.files[0] });
   };
 
-  // Add a new product with image upload
+  // Add a new product with image upload and update business_profile.
   const addProduct = async (e) => {
     e.preventDefault();
+
+    // Validate that all required fields are present.
     if (
       !newProduct.name.trim() ||
       !newProduct.price.trim() ||
-      !selectedSubcategory
+      !selectedSubcategory ||
+      !selectedBusinessType ||
+      !(user && user.email)
     ) {
-      alert("Please fill all required fields.");
+      alert(
+        "Please fill all required fields, including selecting a Business Type and ensuring you are logged in."
+      );
       return;
     }
 
-    // Build FormData so we can send multipart/form-data
+    // Build FormData to send as multipart/form-data.
     const formData = new FormData();
     formData.append("name", newProduct.name);
     formData.append("description", newProduct.description);
     formData.append("price", newProduct.price);
     formData.append("subcategory_id", selectedSubcategory);
+    formData.append("email", user.email); // user's email from session.
+    formData.append("business_id", selectedBusinessType); // selected business type acts as business_id.
     if (newProduct.image) {
       formData.append("image", newProduct.image);
     }
@@ -147,18 +178,22 @@ const ProfilePage = ({ setUser }) => {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
+      console.log("Product added:", response.data);
       setProducts([...products, response.data]);
-      // Reset form fields
+      // Reset form fields.
       setNewProduct({ name: "", description: "", price: "", image: null });
       setSelectedBusinessType("");
       setSelectedCategory("");
       setSelectedSubcategory("");
     } catch (error) {
       console.error("Error adding product:", error);
+      if (error.response && error.response.data) {
+        console.error("Server response:", error.response.data);
+      }
     }
   };
 
-  // Toggle product status
+  // Toggle product status.
   const toggleProductStatus = async (id, currentStatus) => {
     try {
       await axios.put(`http://localhost:5000/api/products/${id}`, {

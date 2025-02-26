@@ -793,13 +793,78 @@ const upload = multer({ storage: storage });
 
 // Add a new product
 
+// app.post("/api/products", upload.single("image"), (req, res) => {
+//   // Extract all required fields, including email and business_id.
+//   const { name, description, price, subcategory_id, email, business_id } =
+//     req.body;
+
+//   // Validate required fields
+//   if (!name || !price || !subcategory_id || !email || !business_id) {
+//     return res.status(400).json({
+//       error:
+//         "Product name, price, subcategory_id, email, and business_id are required",
+//     });
+//   }
+
+//   // Get image file path if a file was uploaded
+//   const imagePath = req.file ? req.file.path : null;
+
+//   // SQL to insert the product
+//   const sql = `
+//     INSERT INTO products (Product_name, Description, Price, Subcategory_id, Status, Product_image)
+//     VALUES (?, ?, ?, ?, ?, ?)
+//   `;
+//   const status = 1; // default status (enabled)
+
+//   db.query(
+//     sql,
+//     [name, description || "", price, subcategory_id, status, imagePath],
+//     (err, result) => {
+//       if (err) {
+//         console.error("Error inserting product:", err);
+//         return res.status(500).json({ error: "Database error" });
+//       }
+
+//       // SQL to insert/update the business_profile table.
+//       // Here, we assume that the 'email' column in business_profile is UNIQUE.
+//       const sqlBusinessProfile = `
+//         INSERT INTO business_profile (email, business_id, status)
+//         VALUES (?, ?, 1)
+//         ON DUPLICATE KEY UPDATE business_id = VALUES(business_id)
+//       `;
+
+//       db.query(sqlBusinessProfile, [email, business_id], (err2, result2) => {
+//         if (err2) {
+//           console.error("Error updating business profile:", err2);
+//           return res
+//             .status(500)
+//             .json({ error: "Database error when updating business profile." });
+//         }
+//         res.status(201).json({
+//           Product_id: result.insertId,
+//           Product_name: name,
+//           Description: description || "",
+//           Price: price,
+//           Subcategory_id: subcategory_id,
+//           Status: status,
+//           Product_image: imagePath,
+//           message: "Product added successfully!",
+//         });
+//       });
+//     }
+//   );
+// });
 app.post("/api/products", upload.single("image"), (req, res) => {
-  const { name, description, price, subcategory_id } = req.body;
+  // Extract all required fields from req.body
+  const { name, description, price, subcategory_id, email, business_id } =
+    req.body;
+
   // Validate required fields
-  if (!name || !price || !subcategory_id) {
-    return res
-      .status(400)
-      .json({ error: "Product name, price, and subcategory_id are required" });
+  if (!name || !price || !subcategory_id || !email || !business_id) {
+    return res.status(400).json({
+      error:
+        "Product name, price, subcategory_id, email, and business_id are required",
+    });
   }
 
   // Get image file path if file was uploaded
@@ -819,28 +884,37 @@ app.post("/api/products", upload.single("image"), (req, res) => {
         console.error("Error inserting product:", err);
         return res.status(500).json({ error: "Database error" });
       }
-      res.status(201).json({
-        Product_id: result.insertId,
-        Product_name: name,
-        Description: description || "",
-        Price: price,
-        Subcategory_id: subcategory_id,
-        Status: status,
-        Product_image: imagePath,
-        message: "Product added successfully!",
+
+      // Now update (or insert) the business_profile table.
+      const sqlBusinessProfile = `
+        INSERT INTO business_profile (email, business_id, status)
+        VALUES (?, ?, 1)
+        ON DUPLICATE KEY UPDATE business_id = VALUES(business_id)
+      `;
+
+      db.query(sqlBusinessProfile, [email, business_id], (err2, result2) => {
+        if (err2) {
+          console.error("Error updating business profile:", err2);
+          return res
+            .status(500)
+            .json({ error: "Database error when updating business profile." });
+        }
+        res.status(201).json({
+          Product_id: result.insertId,
+          Product_name: name,
+          Description: description || "",
+          Price: price,
+          Subcategory_id: subcategory_id,
+          Status: status,
+          Product_image: imagePath,
+          message: "Product added successfully!",
+        });
       });
     }
   );
 });
 
 // Example endpoint to fetch all products (adjust as needed)
-app.get("/api/products", (req, res) => {
-  db.query("SELECT * FROM products", (err, results) => {
-    if (err) return res.status(500).send(err);
-    res.json(results);
-  });
-});
-
 app.get("/api/products", (req, res) => {
   db.query("SELECT * FROM products", (err, results) => {
     if (err) return res.status(500).send(err);
