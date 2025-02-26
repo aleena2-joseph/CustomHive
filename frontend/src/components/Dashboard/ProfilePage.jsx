@@ -18,13 +18,13 @@ const ProfilePage = ({ setUser }) => {
 
   const navigate = useNavigate();
 
-  // Session: Initialize user from localStorage, then update from backend if needed.
+  // Session: initialize user from localStorage
   const [user, setUserState] = useState(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
 
-  // If no user is stored, try to fetch session data from the backend.
+  // If no user is stored, fetch session data from the backend.
   useEffect(() => {
     if (!user) {
       axios
@@ -44,15 +44,26 @@ const ProfilePage = ({ setUser }) => {
     }
   }, [user, setUser]);
 
-  // Product form state (includes image for file upload)
+  // Product form state (with image property)
   const [newProduct, setNewProduct] = useState({
     name: "",
     description: "",
     price: "",
     image: null,
   });
-
-  // Logout handler: clear session from state and localStorage.
+  const userEmail = user?.email || "";
+  useEffect(() => {
+    if (userEmail) {
+      axios
+        .get("http://localhost:5000/api/products", { withCredentials: true })
+        .then((response) => {
+          console.log("Products:", response.data);
+          setProducts(response.data);
+        })
+        .catch((error) => console.error("Error fetching products:", error));
+    }
+  }, [userEmail]);
+  // Logout handler
   const handleLogout = async () => {
     try {
       await axios.get("http://localhost:5000/logout", {
@@ -69,22 +80,27 @@ const ProfilePage = ({ setUser }) => {
     navigate("/login");
   };
 
-  // Helper: Convert API response into an array.
+  // Helper: ensure API response is an array
   const extractDataArray = (responseData) => {
     const data = responseData.data || responseData;
     return Array.isArray(data) ? data : [];
   };
 
-  // Fetch products and business types on mount.
+  // Fetch products for the current user (using session)
   useEffect(() => {
-    axios
-      .get("http://localhost:5000/api/products")
-      .then((response) => {
-        console.log("Products:", response.data);
-        setProducts(extractDataArray(response.data));
-      })
-      .catch((error) => console.error("Error fetching products:", error));
+    if (user && user.email) {
+      axios
+        .get("http://localhost:5000/api/products", { withCredentials: true })
+        .then((response) => {
+          console.log("Products:", response.data);
+          setProducts(response.data);
+        })
+        .catch((error) => console.error("Error fetching products:", error));
+    }
+  }, [user]);
 
+  // Fetch business types on mount
+  useEffect(() => {
     axios
       .get("http://localhost:5000/api/business-types")
       .then((response) => {
@@ -94,7 +110,7 @@ const ProfilePage = ({ setUser }) => {
       .catch((error) => console.error("Error fetching business types:", error));
   }, []);
 
-  // Fetch categories when a business type is selected.
+  // Fetch categories when a business type is selected
   useEffect(() => {
     if (selectedBusinessType) {
       axios
@@ -112,7 +128,7 @@ const ProfilePage = ({ setUser }) => {
     }
   }, [selectedBusinessType]);
 
-  // Fetch subcategories when a category is selected.
+  // Fetch subcategories when a category is selected
   useEffect(() => {
     if (selectedCategory) {
       axios
@@ -132,21 +148,21 @@ const ProfilePage = ({ setUser }) => {
     }
   }, [selectedCategory]);
 
-  // Handle changes in text inputs.
+  // Handle changes in text fields
   const handleProductChange = (e) => {
     setNewProduct({ ...newProduct, [e.target.name]: e.target.value });
   };
 
-  // Handle file input changes.
+  // Handle file input for image upload
   const handleFileChange = (e) => {
     setNewProduct({ ...newProduct, image: e.target.files[0] });
   };
 
-  // Add a new product with image upload and update business_profile.
+  // Add a new product with image upload and update business_profile
   const addProduct = async (e) => {
     e.preventDefault();
 
-    // Validate that all required fields are present.
+    // Validate required fields
     if (
       !newProduct.name.trim() ||
       !newProduct.price.trim() ||
@@ -160,14 +176,16 @@ const ProfilePage = ({ setUser }) => {
       return;
     }
 
-    // Build FormData to send as multipart/form-data.
+    // Build FormData for multipart/form-data
     const formData = new FormData();
     formData.append("name", newProduct.name);
     formData.append("description", newProduct.description);
     formData.append("price", newProduct.price);
     formData.append("subcategory_id", selectedSubcategory);
-    formData.append("email", user.email); // user's email from session.
-    formData.append("business_id", selectedBusinessType); // selected business type acts as business_id.
+    // Use session email from user
+    formData.append("email", user.email);
+    // Selected business type is used as business_id
+    formData.append("business_id", selectedBusinessType);
     if (newProduct.image) {
       formData.append("image", newProduct.image);
     }
@@ -180,20 +198,26 @@ const ProfilePage = ({ setUser }) => {
       );
       console.log("Product added:", response.data);
       setProducts([...products, response.data]);
-      // Reset form fields.
+      // Reset form fields
       setNewProduct({ name: "", description: "", price: "", image: null });
       setSelectedBusinessType("");
       setSelectedCategory("");
       setSelectedSubcategory("");
     } catch (error) {
       console.error("Error adding product:", error);
-      if (error.response && error.response.data) {
-        console.error("Server response:", error.response.data);
+      if (error.response) {
+        console.error("Server response status:", error.response.status);
+        console.error("Server response data:", error.response.data);
+        console.log("Full server response:", error.response);
+      } else if (error.request) {
+        console.error("No response received:", error.request);
+      } else {
+        console.error("Error during request setup:", error.message);
       }
     }
   };
 
-  // Toggle product status.
+  // Toggle product status
   const toggleProductStatus = async (id, currentStatus) => {
     try {
       await axios.put(`http://localhost:5000/api/products/${id}`, {
@@ -218,6 +242,7 @@ const ProfilePage = ({ setUser }) => {
         <FaUserCircle className="text-5xl text-gray-700" />
         <div>
           <h2 className="text-xl font-semibold">{user?.name || "Guest"}</h2>
+          <h2 className="text-xl font-semibold">{user?.email || "Guest"}</h2>
           <p className="text-gray-500">Seller Account</p>
         </div>
       </div>

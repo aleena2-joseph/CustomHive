@@ -307,6 +307,30 @@ app.post("/add_user", async (req, res) => {
     });
   }
 });
+// app.get("/api/session", (req, res) => {
+//   if (req.session && req.session.user) {
+//     res.json({ user: req.session.user });
+//   } else {
+//     res.json({ user: null });
+//   }
+// });
+app.get("/api/session", (req, res) => {
+  if (req.isAuthenticated() && req.user) {
+    res.json({
+      user: {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email,
+        role_id: req.user.role_id,
+      },
+    });
+  } else if (req.session && req.session.user) {
+    res.json({ user: req.session.user });
+  } else {
+    res.json({ user: null });
+  }
+});
+
 // Update User Status API
 app.put("/update_status/:email", (req, res) => {
   const { email } = req.params;
@@ -328,6 +352,78 @@ app.put("/update_status/:email", (req, res) => {
 });
 
 // Login route
+// app.post("/login", async (req, res) => {
+//   const { email, password } = req.body;
+
+//   if (!email || !password) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Please provide both email and password",
+//     });
+//   }
+
+//   try {
+//     const sql = "SELECT * FROM tbl_users WHERE email = ? AND status = '1'";
+
+//     db.query(sql, [email], async (err, results) => {
+//       if (err) {
+//         console.error("Database error:", err);
+//         return res.status(500).json({
+//           success: false,
+//           message: "An error occurred during login",
+//         });
+//       }
+
+//       if (results.length === 0) {
+//         return res.status(401).json({
+//           success: false,
+//           message: "Invalid email or password",
+//         });
+//       }
+
+//       const user = results[0];
+
+//       // Compare hashed password with user input
+//       const passwordMatch = await bcrypt.compare(password, user.password);
+//       if (!passwordMatch) {
+//         return res.status(401).json({
+//           success: false,
+//           message: "Invalid email or password",
+//         });
+//       }
+
+//       // Generate JWT token
+//       const token = jwt.sign(
+//         {
+//           email: user.email,
+//           role_id: user.role_id,
+//         },
+//         process.env.JWT_SECRET || "your-secret-key",
+//         { expiresIn: "24h" }
+//       );
+
+//       const redirectUrl = getRedirectUrl(parseInt(user.role_id));
+
+//       return res.json({
+//         success: true,
+//         message: "Login successful",
+//         token,
+//         user: {
+//           name: user.name,
+//           email: user.email,
+//           role_id: parseInt(user.role_id),
+//         },
+//         redirectUrl,
+//       });
+//     });
+//   } catch (error) {
+//     console.error("Login error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "An error occurred during login",
+//     });
+//   }
+// });
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -378,18 +474,34 @@ app.post("/login", async (req, res) => {
         { expiresIn: "24h" }
       );
 
-      const redirectUrl = getRedirectUrl(parseInt(user.role_id));
+      // Set user in session - FIXED
+      req.session.user = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role_id: parseInt(user.role_id),
+      };
 
-      return res.json({
-        success: true,
-        message: "Login successful",
-        token,
-        user: {
-          name: user.name,
-          email: user.email,
-          role_id: parseInt(user.role_id),
-        },
-        redirectUrl,
+      // Save the session
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+        }
+
+        const redirectUrl = getRedirectUrl(parseInt(user.role_id));
+
+        return res.json({
+          success: true,
+          message: "Login successful",
+          token,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role_id: parseInt(user.role_id),
+          },
+          redirectUrl,
+        });
       });
     });
   } catch (error) {
@@ -400,7 +512,6 @@ app.post("/login", async (req, res) => {
     });
   }
 });
-
 // Forgot password route
 app.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
@@ -767,13 +878,6 @@ app.get("/api/subcategories", (req, res) => {
     res.json({ data: results });
   });
 });
-// Fetch products
-app.get("/api/products", (req, res) => {
-  db.query("SELECT * FROM Products", (err, results) => {
-    if (err) return res.status(500).send(err);
-    res.json(results);
-  });
-});
 
 // Set up Multer storage engine
 const storage = multer.diskStorage({
@@ -794,45 +898,55 @@ const upload = multer({ storage: storage });
 // Add a new product
 
 // app.post("/api/products", upload.single("image"), (req, res) => {
-//   // Extract all required fields, including email and business_id.
-//   const { name, description, price, subcategory_id, email, business_id } =
-//     req.body;
+//   // Debugging logs
+//   console.log("Request body:", req.body);
+//   console.log("Session user:", req.session.user);
 
-//   // Validate required fields
+//   // Extract fields from req.body
+//   const { name, description, price, subcategory_id, business_id } = req.body;
+
+//   // Get email from the session
+//   const email = req.session.user ? req.session.user.email : null;
+
+//   // Check for missing fields and log them
 //   if (!name || !price || !subcategory_id || !email || !business_id) {
+//     console.error("Missing fields:", {
+//       name,
+//       price,
+//       subcategory_id,
+//       email,
+//       business_id,
+//     });
 //     return res.status(400).json({
 //       error:
 //         "Product name, price, subcategory_id, email, and business_id are required",
 //     });
 //   }
 
-//   // Get image file path if a file was uploaded
+//   // Get image file path if uploaded
 //   const imagePath = req.file ? req.file.path : null;
+//   const status = 1; // default status
 
-//   // SQL to insert the product
+//   // Insert into products
 //   const sql = `
-//     INSERT INTO products (Product_name, Description, Price, Subcategory_id, Status, Product_image)
-//     VALUES (?, ?, ?, ?, ?, ?)
+//     INSERT INTO products (Product_name, Description, Price, Subcategory_id, Status, Product_image, email)
+//     VALUES (?, ?, ?, ?, ?, ?, ?)
 //   `;
-//   const status = 1; // default status (enabled)
-
 //   db.query(
 //     sql,
-//     [name, description || "", price, subcategory_id, status, imagePath],
+//     [name, description || "", price, subcategory_id, status, imagePath, email],
 //     (err, result) => {
 //       if (err) {
 //         console.error("Error inserting product:", err);
 //         return res.status(500).json({ error: "Database error" });
 //       }
 
-//       // SQL to insert/update the business_profile table.
-//       // Here, we assume that the 'email' column in business_profile is UNIQUE.
+//       // Now update (or insert) the business_profile table.
 //       const sqlBusinessProfile = `
-//         INSERT INTO business_profile (email, business_id, status)
-//         VALUES (?, ?, 1)
-//         ON DUPLICATE KEY UPDATE business_id = VALUES(business_id)
-//       `;
-
+//       INSERT INTO business_profile (email, business_id, status)
+//       VALUES (?, ?, 1)
+//       ON DUPLICATE KEY UPDATE business_id = VALUES(business_id)
+//     `;
 //       db.query(sqlBusinessProfile, [email, business_id], (err2, result2) => {
 //         if (err2) {
 //           console.error("Error updating business profile:", err2);
@@ -848,80 +962,203 @@ const upload = multer({ storage: storage });
 //           Subcategory_id: subcategory_id,
 //           Status: status,
 //           Product_image: imagePath,
+//           email: email,
 //           message: "Product added successfully!",
 //         });
 //       });
 //     }
 //   );
 // });
+
+// app.get("/api/products", (req, res) => {
+//   const email = req.params.email;
+
+//   const sql = `
+//     SELECT p.*
+//     FROM products p
+//     JOIN tbl_users u ON p.email = u.email
+//     WHERE p.email = ?
+//   `;
+
+//   db.query(sql, [email], (err, results) => {
+//     if (err) {
+//       console.error("Database error:", err);
+//       return res.status(500).json({ error: "Database error" });
+//     }
+//     res.json(results);
+//   });
+// });
 app.post("/api/products", upload.single("image"), (req, res) => {
-  // Extract all required fields from req.body
-  const { name, description, price, subcategory_id, email, business_id } =
+  // Debugging logs
+  console.log("Request body:", req.body);
+
+  // Extract fields from req.body
+  const { name, description, price, subcategory_id, business_id, email } =
     req.body;
 
-  // Validate required fields
-  if (!name || !price || !subcategory_id || !email || !business_id) {
+  // Get email from different possible sources
+  const userEmail =
+    email || (req.session && req.session.user ? req.session.user.email : null);
+
+  // Log all possible sources for debugging
+  console.log({
+    bodyEmail: email,
+    sessionUserEmail:
+      req.session && req.session.user ? req.session.user.email : null,
+    userEmail,
+  });
+
+  // Check for missing fields and log them
+  if (!name || !price || !subcategory_id || !userEmail || !business_id) {
+    console.error("Missing fields:", {
+      name,
+      price,
+      subcategory_id,
+      userEmail,
+      business_id,
+    });
     return res.status(400).json({
       error:
         "Product name, price, subcategory_id, email, and business_id are required",
     });
   }
 
-  // Get image file path if file was uploaded
+  // Get image file path if uploaded
   const imagePath = req.file ? req.file.path : null;
+  const status = 1; // default status
 
+  // Insert into products
   const sql = `
-    INSERT INTO products (Product_name, Description, Price, Subcategory_id, Status, Product_image)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO products (Product_name, Description, Price, Subcategory_id, Status, Product_image, email)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
-  const status = 1; // default status (enabled)
-
   db.query(
     sql,
-    [name, description || "", price, subcategory_id, status, imagePath],
+    [
+      name,
+      description || "",
+      price,
+      subcategory_id,
+      status,
+      imagePath,
+      userEmail,
+    ],
     (err, result) => {
       if (err) {
         console.error("Error inserting product:", err);
-        return res.status(500).json({ error: "Database error" });
+        return res
+          .status(500)
+          .json({ error: "Database error: " + err.message });
       }
 
       // Now update (or insert) the business_profile table.
       const sqlBusinessProfile = `
-        INSERT INTO business_profile (email, business_id, status)
-        VALUES (?, ?, 1)
-        ON DUPLICATE KEY UPDATE business_id = VALUES(business_id)
-      `;
-
-      db.query(sqlBusinessProfile, [email, business_id], (err2, result2) => {
-        if (err2) {
-          console.error("Error updating business profile:", err2);
-          return res
-            .status(500)
-            .json({ error: "Database error when updating business profile." });
+      INSERT INTO business_profile (email, business_id, status)
+      VALUES (?, ?, 1)
+      ON DUPLICATE KEY UPDATE business_id = VALUES(business_id)
+    `;
+      db.query(
+        sqlBusinessProfile,
+        [userEmail, business_id],
+        (err2, result2) => {
+          if (err2) {
+            console.error("Error updating business profile:", err2);
+            return res.status(500).json({
+              error:
+                "Database error when updating business profile: " +
+                err2.message,
+            });
+          }
+          res.status(201).json({
+            Product_id: result.insertId,
+            Product_name: name,
+            Description: description || "",
+            Price: price,
+            Subcategory_id: subcategory_id,
+            Status: status,
+            Product_image: imagePath,
+            email: userEmail,
+            message: "Product added successfully!",
+          });
         }
-        res.status(201).json({
-          Product_id: result.insertId,
-          Product_name: name,
-          Description: description || "",
-          Price: price,
-          Subcategory_id: subcategory_id,
-          Status: status,
-          Product_image: imagePath,
-          message: "Product added successfully!",
-        });
-      });
+      );
     }
   );
 });
 
-// Example endpoint to fetch all products (adjust as needed)
+// Get products - FIXED to properly handle email filtering
 app.get("/api/products", (req, res) => {
-  db.query("SELECT * FROM products", (err, results) => {
-    if (err) return res.status(500).send(err);
+  // Get email either from query params or from session
+  const email =
+    req.query.email ||
+    (req.session && req.session.user ? req.session.user.email : null);
+
+  // If no email available, return all products
+  if (!email) {
+    db.query("SELECT * FROM products", (err, results) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      res.json(results);
+    });
+    return;
+  }
+
+  // Filter by email if available
+  const sql = `SELECT * FROM products WHERE email = ?`;
+  db.query(sql, [email], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
     res.json(results);
   });
 });
 
+// Update product status
+app.put("/api/products/:id", (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  const sql = "UPDATE products SET Status = ? WHERE Product_id = ?";
+  db.query(sql, [status, id], (err, result) => {
+    if (err) {
+      console.error("Error updating product status:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    res.json({ message: "Product status updated successfully" });
+  });
+});
+// Get all products from all users
+app.get("/api/all-products", (req, res) => {
+  const sql = `
+    SELECT p.*, u.name as seller_name, 
+    bt.type_name as business_type,
+    c.category_name, 
+    s.subcategory_name
+    FROM products p
+    LEFT JOIN tbl_users u ON p.email = u.email
+    LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
+    LEFT JOIN categories c ON s.category_id = c.category_id
+    LEFT JOIN business_profile bp ON p.email = bp.email
+    LEFT JOIN business_types bt ON bp.business_id = bt.business_id
+    ORDER BY p.Product_id DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
