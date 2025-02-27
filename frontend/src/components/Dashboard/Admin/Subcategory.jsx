@@ -4,11 +4,35 @@ import PropTypes from "prop-types";
 import axios from "axios";
 
 const SubCategory = ({ setUser }) => {
+  const [businessTypes, setBusinessTypes] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [filteredCategories, setFilteredCategories] = useState([]);
+  const [selectedBusinessType, setSelectedBusinessType] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [subCategoryName, setSubCategoryName] = useState("");
   const [description, setDescription] = useState("");
   const [subCategories, setSubCategories] = useState([]);
+
+  // Fetch business types
+  useEffect(() => {
+    const fetchBusinessTypes = async () => {
+      try {
+        const response = await axios.get(
+          "http://localhost:5000/api/business-types"
+        );
+        console.log("Business Types API Response:", response.data);
+        if (response.data && Array.isArray(response.data)) {
+          setBusinessTypes(response.data);
+        } else {
+          console.error("Unexpected API response format:", response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching business types:", error.message);
+      }
+    };
+
+    fetchBusinessTypes();
+  }, []);
 
   // Fetch categories
   useEffect(() => {
@@ -47,12 +71,27 @@ const SubCategory = ({ setUser }) => {
     }
   };
 
+  // Handle Business Type Selection
+  const handleBusinessTypeChange = (e) => {
+    const selectedType = e.target.value;
+    setSelectedBusinessType(selectedType);
+    setSelectedCategory(""); // Reset category selection
+
+    // Filter categories based on business type
+    const filtered = categories.filter(
+      (category) => category.business_id == selectedType
+    );
+    setFilteredCategories(filtered);
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!selectedCategory || !subCategoryName.trim()) {
-      alert("Please select a category and enter a subcategory name.");
+    if (!selectedBusinessType || !selectedCategory || !subCategoryName.trim()) {
+      alert(
+        "Please select a business type, category, and enter a subcategory name."
+      );
       return;
     }
 
@@ -60,6 +99,7 @@ const SubCategory = ({ setUser }) => {
       const response = await axios.post(
         "http://localhost:5000/api/add-subcategory",
         {
+          business_id: selectedBusinessType,
           category_id: selectedCategory,
           subcategory_name: subCategoryName.trim(),
           description: description.trim(),
@@ -69,6 +109,7 @@ const SubCategory = ({ setUser }) => {
       alert(response.data.message);
       setSubCategoryName("");
       setDescription("");
+      setSelectedBusinessType("");
       setSelectedCategory("");
       fetchSubCategories();
     } catch (error) {
@@ -85,6 +126,29 @@ const SubCategory = ({ setUser }) => {
             Add Subcategory
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Business Type Dropdown */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600">
+                Business Type:
+              </label>
+              <select
+                value={selectedBusinessType}
+                onChange={handleBusinessTypeChange}
+                className="w-full p-2 mt-1 border border-gray-300 rounded-lg focus:ring focus:ring-blue-300 focus:outline-none"
+              >
+                <option value="">Select a business type</option>
+                {businessTypes.map((business) => (
+                  <option
+                    key={business.business_id}
+                    value={business.business_id}
+                  >
+                    {business.type_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Category Dropdown */}
             <div>
               <label className="block text-sm font-medium text-gray-600">
                 Category:
@@ -93,9 +157,10 @@ const SubCategory = ({ setUser }) => {
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="w-full p-2 mt-1 border border-gray-300 rounded-lg focus:ring focus:ring-blue-300 focus:outline-none"
+                disabled={!selectedBusinessType} // Disable if business type not selected
               >
                 <option value="">Select a category</option>
-                {categories.map((category) => (
+                {filteredCategories.map((category) => (
                   <option
                     key={category.category_id}
                     value={category.category_id}
@@ -106,6 +171,7 @@ const SubCategory = ({ setUser }) => {
               </select>
             </div>
 
+            {/* Subcategory Name */}
             <div>
               <label className="block text-sm font-medium text-gray-600">
                 Subcategory Name:
@@ -119,6 +185,7 @@ const SubCategory = ({ setUser }) => {
               />
             </div>
 
+            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-600">
                 Description:
@@ -131,15 +198,22 @@ const SubCategory = ({ setUser }) => {
               />
             </div>
 
+            {/* Submit Button */}
             <div>
               <button
                 type="submit"
                 className={`w-full text-white font-bold py-2 px-4 rounded-lg transition ${
-                  !selectedCategory || !subCategoryName.trim()
+                  !selectedBusinessType ||
+                  !selectedCategory ||
+                  !subCategoryName.trim()
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-blue-500 hover:bg-blue-600"
                 }`}
-                disabled={!selectedCategory || !subCategoryName.trim()}
+                disabled={
+                  !selectedBusinessType ||
+                  !selectedCategory ||
+                  !subCategoryName.trim()
+                }
               >
                 Add Subcategory
               </button>
@@ -147,6 +221,7 @@ const SubCategory = ({ setUser }) => {
           </form>
         </div>
 
+        {/* Subcategory List */}
         <div className="max-w-2xl mx-auto bg-white shadow-lg rounded-lg p-6 mt-6">
           <h2 className="text-xl font-bold text-gray-700 mb-4">
             Subcategory List
@@ -156,7 +231,7 @@ const SubCategory = ({ setUser }) => {
               <thead>
                 <tr className="bg-gray-200 text-left">
                   <th className="border border-gray-300 px-4 py-2">
-                    Subcategory Name
+                    Subcategory
                   </th>
                   <th className="border border-gray-300 px-4 py-2">Category</th>
                   <th className="border border-gray-300 px-4 py-2">
@@ -174,9 +249,7 @@ const SubCategory = ({ setUser }) => {
                       {subCategory.subcategory_name}
                     </td>
                     <td className="border border-gray-300 px-4 py-2">
-                      {categories.find(
-                        (c) => c.category_id === subCategory.category_id
-                      )?.category_name || "Unknown"}
+                      {subCategory.category_name}
                     </td>
                     <td className="border border-gray-300 px-4 py-2">
                       {subCategory.description || "N/A"}

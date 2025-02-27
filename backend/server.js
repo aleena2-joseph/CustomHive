@@ -818,14 +818,36 @@ app.post("/api/add-category", (req, res) => {
 });
 
 // Fetch all categories
+// app.get("/api/categories", (req, res) => {
+//   const sql = `
+//     SELECT c.category_id, c.category_name, c.description, b.business_id, b.type_name
+//     FROM categories c
+//     JOIN business_types b ON c.business_id = b.business_id
+//   `;
+
+//   db.query(sql, (err, results) => {
+//     if (err) {
+//       console.error("Database Error:", err);
+//       return res.status(500).json({ message: "Internal Server Error" });
+//     }
+//     res.json({ data: results });
+//   });
+// });
 app.get("/api/categories", (req, res) => {
-  const sql = `
+  const { business_id } = req.query; // Get business_id from query parameters
+
+  let sql = `
     SELECT c.category_id, c.category_name, c.description, b.business_id, b.type_name 
     FROM categories c
     JOIN business_types b ON c.business_id = b.business_id
   `;
 
-  db.query(sql, (err, results) => {
+  // If business_id is provided, filter by it
+  if (business_id) {
+    sql += ` WHERE c.business_id = ?`;
+  }
+
+  db.query(sql, business_id ? [business_id] : [], (err, results) => {
     if (err) {
       console.error("Database Error:", err);
       return res.status(500).json({ message: "Internal Server Error" });
@@ -863,14 +885,38 @@ app.post("/api/add-subcategory", (req, res) => {
 });
 
 // Fetch all subcategories
+// app.get("/api/subcategories", (req, res) => {
+//   const sql = `
+//     SELECT s.subcategory_id, s.subcategory_name, s.description, c.category_id, c.category_name
+//     FROM subcategories s
+//     JOIN categories c ON s.category_id = c.category_id
+//   `;
+
+//   db.query(sql, (err, results) => {
+//     if (err) {
+//       console.error("Database Error:", err);
+//       return res.status(500).json({ message: "Internal Server Error" });
+//     }
+//     res.json({ data: results });
+//   });
+// });
+
+// Fetch subcategories with category_id filtering
 app.get("/api/subcategories", (req, res) => {
-  const sql = `
+  const { category_id } = req.query; // Get category_id from query parameters
+
+  let sql = `
     SELECT s.subcategory_id, s.subcategory_name, s.description, c.category_id, c.category_name 
     FROM subcategories s
     JOIN categories c ON s.category_id = c.category_id
   `;
 
-  db.query(sql, (err, results) => {
+  // If category_id is provided, filter by it
+  if (category_id) {
+    sql += ` WHERE s.category_id = ?`;
+  }
+
+  db.query(sql, category_id ? [category_id] : [], (err, results) => {
     if (err) {
       console.error("Database Error:", err);
       return res.status(500).json({ message: "Internal Server Error" });
@@ -878,7 +924,6 @@ app.get("/api/subcategories", (req, res) => {
     res.json({ data: results });
   });
 });
-
 // Set up Multer storage engine
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -897,97 +942,6 @@ const upload = multer({ storage: storage });
 
 // Add a new product
 
-// app.post("/api/products", upload.single("image"), (req, res) => {
-//   // Debugging logs
-//   console.log("Request body:", req.body);
-//   console.log("Session user:", req.session.user);
-
-//   // Extract fields from req.body
-//   const { name, description, price, subcategory_id, business_id } = req.body;
-
-//   // Get email from the session
-//   const email = req.session.user ? req.session.user.email : null;
-
-//   // Check for missing fields and log them
-//   if (!name || !price || !subcategory_id || !email || !business_id) {
-//     console.error("Missing fields:", {
-//       name,
-//       price,
-//       subcategory_id,
-//       email,
-//       business_id,
-//     });
-//     return res.status(400).json({
-//       error:
-//         "Product name, price, subcategory_id, email, and business_id are required",
-//     });
-//   }
-
-//   // Get image file path if uploaded
-//   const imagePath = req.file ? req.file.path : null;
-//   const status = 1; // default status
-
-//   // Insert into products
-//   const sql = `
-//     INSERT INTO products (Product_name, Description, Price, Subcategory_id, Status, Product_image, email)
-//     VALUES (?, ?, ?, ?, ?, ?, ?)
-//   `;
-//   db.query(
-//     sql,
-//     [name, description || "", price, subcategory_id, status, imagePath, email],
-//     (err, result) => {
-//       if (err) {
-//         console.error("Error inserting product:", err);
-//         return res.status(500).json({ error: "Database error" });
-//       }
-
-//       // Now update (or insert) the business_profile table.
-//       const sqlBusinessProfile = `
-//       INSERT INTO business_profile (email, business_id, status)
-//       VALUES (?, ?, 1)
-//       ON DUPLICATE KEY UPDATE business_id = VALUES(business_id)
-//     `;
-//       db.query(sqlBusinessProfile, [email, business_id], (err2, result2) => {
-//         if (err2) {
-//           console.error("Error updating business profile:", err2);
-//           return res
-//             .status(500)
-//             .json({ error: "Database error when updating business profile." });
-//         }
-//         res.status(201).json({
-//           Product_id: result.insertId,
-//           Product_name: name,
-//           Description: description || "",
-//           Price: price,
-//           Subcategory_id: subcategory_id,
-//           Status: status,
-//           Product_image: imagePath,
-//           email: email,
-//           message: "Product added successfully!",
-//         });
-//       });
-//     }
-//   );
-// });
-
-// app.get("/api/products", (req, res) => {
-//   const email = req.params.email;
-
-//   const sql = `
-//     SELECT p.*
-//     FROM products p
-//     JOIN tbl_users u ON p.email = u.email
-//     WHERE p.email = ?
-//   `;
-
-//   db.query(sql, [email], (err, results) => {
-//     if (err) {
-//       console.error("Database error:", err);
-//       return res.status(500).json({ error: "Database error" });
-//     }
-//     res.json(results);
-//   });
-// });
 app.post("/api/products", upload.single("image"), (req, res) => {
   // Debugging logs
   console.log("Request body:", req.body);
@@ -1137,29 +1091,6 @@ app.put("/api/products/:id", (req, res) => {
 });
 // Get all products from all users
 
-// app.get("/api/all-products", (req, res) => {
-//   const sql = `
-//     SELECT DISTINCT p.*, u.name AS seller_name,
-//     bt.type_name AS business_type,
-//     c.category_name,
-//     s.subcategory_name
-//     FROM products p
-//     LEFT JOIN tbl_users u ON p.email = u.email
-//     LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
-//     LEFT JOIN categories c ON s.category_id = c.category_id
-//     LEFT JOIN business_profile bp ON p.email = bp.email
-//     LEFT JOIN business_types bt ON bp.business_id = bt.business_id
-//     ORDER BY p.Product_id DESC
-//   `;
-
-//   db.query(sql, (err, results) => {
-//     if (err) {
-//       console.error("Database error:", err);
-//       return res.status(500).json({ error: "Database error" });
-//     }
-//     res.json(results);
-//   });
-// });
 app.get("/api/all-products", (req, res) => {
   const sql = `
     SELECT p.*, u.name AS seller_name, 
@@ -1182,6 +1113,31 @@ app.get("/api/all-products", (req, res) => {
       return res.status(500).json({ error: "Database error" });
     }
     res.json(results);
+  });
+});
+
+app.get("/api/products/count", (req, res) => {
+  const sql = "SELECT COUNT(*) AS totalProducts FROM products";
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json({ totalProducts: results[0].totalProducts });
+  });
+});
+
+app.get("/api/business-profile/owners-count", (req, res) => {
+  const query =
+    "SELECT COUNT(DISTINCT email) AS ownerCount FROM business_profile WHERE status = 1";
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching unique owner count:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json({ ownerCount: results[0].ownerCount });
   });
 });
 

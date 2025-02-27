@@ -5,19 +5,32 @@ import Sidebar from "../../Hero/Sidebar";
 const Overview = () => {
   const [totalUsers, setTotalUsers] = useState(0);
   const [categories, setCategories] = useState([]);
+  const [ownerCount, setOwnerCount] = useState(0);
+  const [productCount, setProductCount] = useState(0);
 
   useEffect(() => {
     // Fetch total users (excluding admin)
     axios
       .get("http://localhost:5000/users")
-      .then((res) => setTotalUsers(res.data.length))
+      .then((res) => setTotalUsers(res.data.length || 0))
       .catch((err) => console.error("Error fetching users:", err));
 
     // Fetch business categories
     axios
       .get("http://localhost:5000/api/business-types")
-      .then((res) => setCategories(res.data))
+      .then((res) => setCategories(res.data || []))
       .catch((err) => console.error("Error fetching categories:", err));
+
+    // Fetch total owners count
+    axios
+      .get("http://localhost:5000/api/business-profile/owners-count")
+      .then((res) => setOwnerCount(res.data.ownerCount || 0))
+      .catch((err) => console.error("Error fetching owner count:", err));
+
+    axios
+      .get("http://localhost:5000/api/products/count")
+      .then((res) => setProductCount(res.data.totalProducts || 0))
+      .catch((err) => console.error("Error fetching Products count:", err));
   }, []);
 
   return (
@@ -34,11 +47,11 @@ const Overview = () => {
             </div>
             <div className="bg-green-500 text-white p-6 rounded-lg shadow-md">
               <h3 className="text-xl font-semibold">Total Owners</h3>
-              <p className="text-3xl">0</p> {/* Dummy Value */}
+              <p className="text-3xl">{ownerCount}</p>
             </div>
             <div className="bg-purple-500 text-white p-6 rounded-lg shadow-md">
               <h3 className="text-xl font-semibold">Total Products</h3>
-              <p className="text-3xl">0</p> {/* Dummy Value */}
+              <p className="text-3xl">{productCount}</p>
             </div>
           </div>
 

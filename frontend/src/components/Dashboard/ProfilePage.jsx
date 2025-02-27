@@ -52,6 +52,7 @@ const ProfilePage = ({ setUser }) => {
     image: null,
   });
   const userEmail = user?.email || "";
+
   useEffect(() => {
     if (userEmail) {
       axios
@@ -63,6 +64,7 @@ const ProfilePage = ({ setUser }) => {
         .catch((error) => console.error("Error fetching products:", error));
     }
   }, [userEmail]);
+
   // Logout handler
   const handleLogout = async () => {
     try {
@@ -78,12 +80,6 @@ const ProfilePage = ({ setUser }) => {
     }
     setUserState(null);
     navigate("/login");
-  };
-
-  // Helper: ensure API response is an array
-  const extractDataArray = (responseData) => {
-    const data = responseData.data || responseData;
-    return Array.isArray(data) ? data : [];
   };
 
   // Fetch products for the current user (using session)
@@ -105,7 +101,7 @@ const ProfilePage = ({ setUser }) => {
       .get("http://localhost:5000/api/business-types")
       .then((response) => {
         console.log("Business Types:", response.data);
-        setBusinessTypes(extractDataArray(response.data));
+        setBusinessTypes(response.data || []);
       })
       .catch((error) => console.error("Error fetching business types:", error));
   }, []);
@@ -115,16 +111,23 @@ const ProfilePage = ({ setUser }) => {
     if (selectedBusinessType) {
       axios
         .get(
-          `http://localhost:5000/api/categories?business_type=${selectedBusinessType}`
+          `http://localhost:5000/api/categories?business_id=${selectedBusinessType}`
         )
         .then((response) => {
           console.log("Categories:", response.data);
-          setCategories(extractDataArray(response.data));
+          // Extract the data array from the response
+          const categoriesData = response.data.data || [];
+          setCategories(categoriesData);
+
+          // Reset subcategory-related selections
+          setSelectedCategory("");
+          setSelectedSubcategory("");
         })
         .catch((error) => console.error("Error fetching categories:", error));
     } else {
       setCategories([]);
       setSelectedCategory("");
+      setSelectedSubcategory("");
     }
   }, [selectedBusinessType]);
 
@@ -137,7 +140,10 @@ const ProfilePage = ({ setUser }) => {
         )
         .then((response) => {
           console.log("Subcategories:", response.data);
-          setSubcategories(extractDataArray(response.data));
+          // Extract the data array from the response
+          const subcategoriesData = response.data.data || [];
+          setSubcategories(subcategoriesData);
+          setSelectedSubcategory("");
         })
         .catch((error) =>
           console.error("Error fetching subcategories:", error)
@@ -194,15 +200,16 @@ const ProfilePage = ({ setUser }) => {
       const response = await axios.post(
         "http://localhost:5000/api/products",
         formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+          withCredentials: true,
+        }
       );
       console.log("Product added:", response.data);
       setProducts([...products, response.data]);
       // Reset form fields
       setNewProduct({ name: "", description: "", price: "", image: null });
-      setSelectedBusinessType("");
-      setSelectedCategory("");
-      setSelectedSubcategory("");
+      // Don't reset selections to improve user experience
     } catch (error) {
       console.error("Error adding product:", error);
       if (error.response) {
@@ -220,9 +227,14 @@ const ProfilePage = ({ setUser }) => {
   // Toggle product status
   const toggleProductStatus = async (id, currentStatus) => {
     try {
-      await axios.put(`http://localhost:5000/api/products/${id}`, {
-        status: !currentStatus,
-      });
+      await axios.put(
+        `http://localhost:5000/api/products/${id}`,
+        {
+          status: !currentStatus,
+        },
+        { withCredentials: true }
+      );
+
       setProducts(
         products.map((product) =>
           product.Product_id === id
