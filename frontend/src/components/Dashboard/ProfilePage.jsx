@@ -3,7 +3,14 @@ import axios from "axios";
 import PropTypes from "prop-types";
 import { useNavigate } from "react-router-dom";
 import { FaUserCircle } from "react-icons/fa";
-import { FiEdit, FiLogOut, FiPlusCircle } from "react-icons/fi";
+import {
+  FiEdit,
+  FiLogOut,
+  FiPlusCircle,
+  FiDollarSign,
+  FiPackage,
+  FiTag,
+} from "react-icons/fi";
 
 const ProfilePage = ({ setUser }) => {
   const [products, setProducts] = useState([]);
@@ -248,179 +255,320 @@ const ProfilePage = ({ setUser }) => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      {/* Profile Header */}
-      <div className="flex items-center space-x-4 border-b pb-4 mb-6">
-        <FaUserCircle className="text-5xl text-gray-700" />
-        <div>
-          <h2 className="text-xl font-semibold">{user?.name || "Guest"}</h2>
-          <h2 className="text-xl font-semibold">{user?.email || "Guest"}</h2>
-          <p className="text-gray-500">Seller Account</p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-5xl mx-auto p-6">
+        {/* Profile Header */}
+        <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-full">
+              <FaUserCircle className="text-6xl text-white" />
+            </div>
+            <div className="text-center md:text-left">
+              <h2 className="text-2xl font-bold text-gray-800">
+                {user?.name || "Guest"}
+              </h2>
+              <p className="text-lg text-gray-600">{user?.email || ""}</p>
+              <div className="mt-2 inline-block bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+                Seller Account
+              </div>
+            </div>
+            <div className="ml-auto flex flex-col md:flex-row gap-3 mt-4 md:mt-0">
+              <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition">
+                <FiEdit size={18} />
+                <span>Edit Profile</span>
+              </button>
+              <button
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 transition"
+                onClick={handleLogout}
+              >
+                <FiLogOut size={18} />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Profile Options */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <button className="flex items-center space-x-2 p-3 bg-blue-500 text-white rounded-lg w-full hover:bg-blue-600">
-          <FiEdit />
-          <span>Edit Profile</span>
-        </button>
-        <button
-          className="flex items-center space-x-2 p-3 bg-red-500 text-white rounded-lg w-full hover:bg-red-600"
-          onClick={handleLogout}
-        >
-          <FiLogOut />
-          <span>Logout</span>
-        </button>
-      </div>
+        {/* My Products Section */}
+        <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
+          <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+            <FiPackage className="mr-2 text-indigo-600" />
+            My Products
+          </h3>
 
-      {/* My Products Section */}
-      <div className="bg-white p-4 shadow-md rounded-lg">
-        <h3 className="text-lg font-semibold mb-4">My Products</h3>
+          {/* Product Form */}
+          <div className="bg-gray-50 rounded-xl p-6 mb-8">
+            <h4 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+              <FiPlusCircle className="mr-2 text-indigo-600" />
+              Add New Product
+            </h4>
 
-        {/* Product Form */}
-        <form onSubmit={addProduct} className="mb-4 grid grid-cols-2 gap-4">
-          {/* Business Type Select */}
-          <select
-            value={selectedBusinessType}
-            onChange={(e) => setSelectedBusinessType(e.target.value)}
-            className="border p-2 rounded-lg"
-            required
-          >
-            <option value="">Select Business Type</option>
-            {businessTypes.map((bt, index) => (
-              <option
-                key={bt.business_id || `bt-${index}`}
-                value={bt.business_id}
-              >
-                {bt.type_name}
-              </option>
-            ))}
-          </select>
+            <form onSubmit={addProduct} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Business Type Select */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Business Type
+                  </label>
+                  <select
+                    value={selectedBusinessType}
+                    onChange={(e) => setSelectedBusinessType(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    required
+                  >
+                    <option value="">Select Business Type</option>
+                    {businessTypes.map((bt, index) => (
+                      <option
+                        key={bt.business_id || `bt-${index}`}
+                        value={bt.business_id}
+                      >
+                        {bt.type_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* Category Select */}
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="border p-2 rounded-lg"
-            required
-            disabled={!selectedBusinessType}
-          >
-            <option value="">Select Category</option>
-            {categories.map((cat, index) => (
-              <option
-                key={cat.category_id || `cat-${index}`}
-                value={cat.category_id}
-              >
-                {cat.category_name}
-              </option>
-            ))}
-          </select>
+                {/* Category Select */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Category
+                  </label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    required
+                    disabled={!selectedBusinessType}
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat, index) => (
+                      <option
+                        key={cat.category_id || `cat-${index}`}
+                        value={cat.category_id}
+                      >
+                        {cat.category_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* Subcategory Select */}
-          <select
-            name="subcategory_id"
-            value={selectedSubcategory}
-            onChange={(e) => setSelectedSubcategory(e.target.value)}
-            className="border p-2 rounded-lg"
-            required
-            disabled={!selectedCategory}
-          >
-            <option value="">Select Subcategory</option>
-            {subcategories.map((sub, index) => (
-              <option
-                key={sub.subcategory_id || `sub-${index}`}
-                value={sub.subcategory_id}
-              >
-                {sub.subcategory_name}
-              </option>
-            ))}
-          </select>
+                {/* Subcategory Select */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Subcategory
+                  </label>
+                  <select
+                    name="subcategory_id"
+                    value={selectedSubcategory}
+                    onChange={(e) => setSelectedSubcategory(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:primary focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    required
+                    disabled={!selectedCategory}
+                  >
+                    <option value="">Select Subcategory</option>
+                    {subcategories.map((sub, index) => (
+                      <option
+                        key={sub.subcategory_id || `sub-${index}`}
+                        value={sub.subcategory_id}
+                      >
+                        {sub.subcategory_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* Product Name */}
-          <input
-            type="text"
-            name="name"
-            value={newProduct.name}
-            onChange={handleProductChange}
-            className="border p-2 rounded-lg"
-            placeholder="Product Name"
-            required
-          />
+                {/* Product Name */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Product Name
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiTag className="text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      name="name"
+                      value={newProduct.name}
+                      onChange={handleProductChange}
+                      className="pl-10 w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Product Name"
+                      required
+                    />
+                  </div>
+                </div>
 
-          {/* Price */}
-          <input
-            type="number"
-            name="price"
-            value={newProduct.price}
-            onChange={handleProductChange}
-            className="border p-2 rounded-lg"
-            placeholder="Price"
-            required
-          />
+                {/* Price */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Price
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiDollarSign className="text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      name="price"
+                      value={newProduct.price}
+                      onChange={handleProductChange}
+                      className="pl-10 w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Price"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
 
-          {/* Description */}
-          <textarea
-            name="description"
-            value={newProduct.description}
-            onChange={handleProductChange}
-            className="border p-2 rounded-lg col-span-2"
-            placeholder="Product Description"
-          />
+              {/* Description */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Description
+                </label>
+                <textarea
+                  name="description"
+                  value={newProduct.description}
+                  onChange={handleProductChange}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Product Description"
+                  rows="3"
+                />
+              </div>
 
-          {/* File Input for Image */}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="col-span-2"
-          />
-
-          <button
-            type="submit"
-            className="col-span-2 p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center"
-          >
-            <FiPlusCircle className="mr-2" /> Add Product
-          </button>
-        </form>
-
-        {/* Product List */}
-        <ul>
-          {products.map((product) => (
-            <li
-              key={product.Product_id}
-              className={`flex justify-between items-center p-3 border rounded-lg mb-2 ${
-                product.Status ? "bg-gray-100" : "bg-gray-300"
-              }`}
-            >
-              <div>
-                <h4 className={product.Status ? "" : "line-through"}>
-                  {product.Product_name} - ₹{product.Price}
-                </h4>
-                <p className="text-sm text-gray-500">{product.Description}</p>
-                {product.Product_image && (
-                  <img
-                    src={`http://localhost:5000/${product.Product_image}`}
-                    alt={product.Product_name}
-                    className="mt-2 h-20"
-                  />
+              {/* File Input for Image */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Product Image
+                </label>
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <svg
+                        className="w-8 h-8 mb-4 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        />
+                      </svg>
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Click to upload</span>{" "}
+                        or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        PNG, JPG, GIF up to 10MB
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                {newProduct.image && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    Selected: {newProduct.image.name}
+                  </p>
                 )}
               </div>
+
               <button
-                onClick={() =>
-                  toggleProductStatus(product.Product_id, product.Status)
-                }
-                className={`border px-3 py-1 rounded-lg ${
-                  product.Status
-                    ? "text-red-500 border-red-500 hover:bg-red-500 hover:text-white"
-                    : "text-green-500 border-green-500 hover:bg-green-500 hover:text-white"
-                }`}
+                type="submit"
+                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
               >
-                {product.Status ? "Disable" : "Enable"}
+                <FiPlusCircle size={20} />
+                <span className="font-medium">Add Product</span>
               </button>
-            </li>
-          ))}
-        </ul>
+            </form>
+          </div>
+
+          {/* Product List */}
+          <div>
+            <h4 className="text-lg font-semibold text-gray-700 mb-4">
+              Your Products
+            </h4>
+
+            {products.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <FiPackage className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-lg font-medium text-gray-900">
+                  No products yet
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Get started by adding your first product above.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {products.map((product) => (
+                  <div
+                    key={product.Product_id}
+                    className={`rounded-lg border overflow-hidden transition ${
+                      product.Status ? "bg-white" : "bg-gray-100"
+                    }`}
+                  >
+                    <div className="flex flex-col md:flex-row">
+                      {product.Product_image && (
+                        <div className="w-full md:w-1/4 h-48 md:h-auto">
+                          <img
+                            src={`http://localhost:5000/${product.Product_image}`}
+                            alt={product.Product_name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 p-4 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start">
+                            <h4
+                              className={`text-lg font-semibold ${
+                                product.Status
+                                  ? "text-gray-800"
+                                  : "text-gray-500 line-through"
+                              }`}
+                            >
+                              {product.Product_name}
+                            </h4>
+                            <span className="text-lg font-bold text-indigo-600">
+                              ₹{product.Price}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-gray-600 text-sm">
+                            {product.Description}
+                          </p>
+                        </div>
+                        <div className="mt-4 flex justify-end">
+                          <button
+                            onClick={() =>
+                              toggleProductStatus(
+                                product.Product_id,
+                                product.Status
+                              )
+                            }
+                            className={`px-4 py-2 rounded-lg transition ${
+                              product.Status
+                                ? "bg-red-50 text-red-600 hover:bg-red-100"
+                                : "bg-green-50 text-green-600 hover:bg-green-100"
+                            }`}
+                          >
+                            {product.Status ? "Disable" : "Enable"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

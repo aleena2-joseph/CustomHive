@@ -1140,6 +1140,103 @@ app.get("/api/business-profile/owners-count", (req, res) => {
     res.json({ ownerCount: results[0].ownerCount });
   });
 });
+app.post("/api/add-to-cart", async (req, res) => {
+  const { email, product_id } = req.body;
+
+  console.log("Received Data:", req.body); // Log request body
+  console.log("Email:", email);
+  console.log("Product ID:", product_id);
+
+  if (!email || !product_id) {
+    return res.status(400).json({ message: "Missing required fields." });
+  }
+
+  try {
+    const sql =
+      "INSERT INTO cart (email, product_id, added_at) VALUES (?, ?, NOW())";
+    await db.query(sql, [email, product_id]);
+
+    res.json({ message: "Item added to cart" });
+  } catch (error) {
+    console.error("Error adding to cart:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.get("/api/cart/:email", async (req, res) => {
+  const { email } = req.params;
+
+  try {
+    // Query to join cart table with products table to get product details
+    const sql = `
+      SELECT c.cart_id, c.email, c.product_id, c.added_at, 
+             p.Product_name, p.Price, p.Description, p.Product_image, 
+             p.Subcategory_id, u.name AS seller_name,
+             s.subcategory_name, cat.category_name
+      FROM cart c
+      JOIN products p ON c.product_id = p.Product_id
+      LEFT JOIN tbl_users u ON p.email = u.email
+      LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
+      LEFT JOIN categories cat ON s.category_id = cat.category_id
+      WHERE c.email = ?
+      ORDER BY c.added_at DESC
+    `;
+
+    db.query(sql, [email], (err, rows) => {
+      if (err) {
+        console.error("Error fetching cart items:", err);
+        return res.status(500).json({ message: "Server error" });
+      }
+      res.json(rows);
+    });
+  } catch (error) {
+    console.error("Error fetching cart items:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get cart items for a specific user
+// app.get("/api/cart/:email", async (req, res) => {
+//   const { email } = req.params;
+
+//   try {
+//     // Query to join cart table with products table to get product details
+//     const sql = `
+//       SELECT c.cart_id, c.email, c.product_id, c.added_at,
+//              p.Product_name, p.Price, p.Description, p.Product_image,
+//              p.category_id, p.subcategory_id, p.seller_id, p.business_type,
+//              cat.category_name, subcat.subcategory_name, s.seller_name
+//       FROM cart c
+//       JOIN products p ON c.product_id = p.Product_id
+//       LEFT JOIN categories cat ON p.category_id = cat.category_id
+//       LEFT JOIN subcategories subcat ON p.subcategory_id = subcat.subcategory_id
+//       LEFT JOIN sellers s ON p.seller_id = s.seller_id
+//       WHERE c.email = ?
+//       ORDER BY c.added_at DESC
+//     `;
+
+//     const [rows] = await db.query(sql, [email]);
+//     res.json(rows);
+//   } catch (error) {
+//     console.error("Error fetching cart items:", error);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
+
+// // Delete item from cart
+app.delete("/api/cart/:cartId", async (req, res) => {
+  const { cartId } = req.params;
+
+  try {
+    const sql = "DELETE FROM cart WHERE cart_id = ?";
+    await db.query(sql, [cartId]);
+
+    res.json({ message: "Item removed from cart" });
+  } catch (error) {
+    console.error("Error removing item from cart:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);

@@ -5,7 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./components/LoginSignup/Login";
 import Signup from "./components/LoginSignup/Signup";
 import UserDashboard from "./components/Dashboard/UserDashboard";
-
+import Cart from "./components/Dashboard/Cart";
 import Overview from "../../frontend/src/components/Dashboard/Admin/Overview";
 import Home from "./components/Dashboard/Home";
 import UserList from "./components/Dashboard/Admin/UserList";
@@ -82,6 +82,7 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/profile" element={<ProfilePage setUser={setUser} />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/cart" element={<Cart />} />
       </Routes>
     </BrowserRouter>
   );

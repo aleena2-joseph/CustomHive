@@ -14,6 +14,27 @@ const UserDashboard = ({ user, setUser }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const handleAddToCart = async (product) => {
+    try {
+      const userEmail = user?.email; // Ensure the user is logged in
+      if (!userEmail) {
+        alert("Please log in to add items to your cart.");
+        return;
+      }
+
+      const cartItem = {
+        email: userEmail,
+        product_id: product.Product_id, // Change this to match your product object structure
+      };
+
+      await axios.post("http://localhost:5000/api/add-to-cart", cartItem);
+
+      alert("Product added to cart successfully!");
+    } catch (error) {
+      console.error("Error adding to cart:", error.response?.data || error);
+      alert("Failed to add product to cart.");
+    }
+  };
 
   useEffect(() => {
     // Fetch all products
@@ -64,15 +85,21 @@ const UserDashboard = ({ user, setUser }) => {
               <span className="text-primary">CustomHive</span>
             </a>
           </div>
-          <div className="flex items-center gap-4">
-            <FaCartShopping className="text-3xl text-primary mr-6" />
-            <div className="relative">
+          {/* Aligning the elements horizontally */}
+          <div className="flex items-center gap-6">
+            {/* Cart Icon */}
+            <a href="/cart">
+              <FaCartShopping className="text-3xl text-primary" />
+            </a>
+
+            {/* User Profile Dropdown */}
+            <div className="relative flex items-center gap-2">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="focus:outline-none flex items-center gap-2"
               >
                 <FaUserCircle className="text-3xl text-primary" />
-                <span className="hidden md:inline text-gray-700 mr-4">
+                <span className="hidden md:inline text-gray-700">
                   {user?.name || "Guest"}
                 </span>
               </button>
@@ -88,14 +115,6 @@ const UserDashboard = ({ user, setUser }) => {
                       </a>
                     </li>
                     <li>
-                      {/* <li>
-                        <a
-                          href="/cart"
-                          className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                        >
-                          View Cart
-                        </a>
-                      </li> */}
                       <a
                         href="/orders"
                         className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
@@ -115,6 +134,8 @@ const UserDashboard = ({ user, setUser }) => {
                 </div>
               )}
             </div>
+
+            {/* Logout Button */}
             <button
               onClick={handleLogout}
               className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
@@ -244,7 +265,10 @@ const UserDashboard = ({ user, setUser }) => {
                       <button className="bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors text-sm">
                         View Details
                       </button>
-                      <button className="bg-primary text-white p-3 rounded-full hover:bg-primary/80 transition-colors transform hover:scale-105">
+                      <button
+                        onClick={() => handleAddToCart(product)}
+                        className="bg-primary text-white p-3 rounded-full hover:bg-primary/80 transition-colors transform hover:scale-105"
+                      >
                         <FaShoppingCart />
                       </button>
                     </div>
