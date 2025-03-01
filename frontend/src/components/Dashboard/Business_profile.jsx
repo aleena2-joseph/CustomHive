@@ -6,5 +6,3 @@ const Business_profile = () => {
     </div>
   );
 };
-
-export default Business_profile;

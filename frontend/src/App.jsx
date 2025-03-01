@@ -5,7 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./components/LoginSignup/Login";
 import Signup from "./components/LoginSignup/Signup";
 import UserDashboard from "./components/Dashboard/UserDashboard";
-import BusinessProfile from "./components/Dashboard/Business_profile";
+
 import Overview from "../../frontend/src/components/Dashboard/Admin/Overview";
 import Home from "./components/Dashboard/Home";
 import UserList from "./components/Dashboard/Admin/UserList";
@@ -63,8 +63,6 @@ const App = () => {
             )
           }
         />
-
-        <Route path="/business_profile" element={<BusinessProfile />} />
 
         <Route path="/admin" element={<Navigate to="/admin/overview" />} />
         <Route path="/admin/overview" element={<Overview />} />

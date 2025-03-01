@@ -6,6 +6,7 @@ import logo from "../Products/Navbar/logo.png";
 import axios from "axios";
 import Hero from "../Hero/Hero";
 //import TopProducts from "../TopProducts/TopProducts";
+import { FaCartShopping } from "react-icons/fa6";
 
 const UserDashboard = ({ user, setUser }) => {
   const navigate = useNavigate();
@@ -64,13 +65,14 @@ const UserDashboard = ({ user, setUser }) => {
             </a>
           </div>
           <div className="flex items-center gap-4">
+            <FaCartShopping className="text-3xl text-primary mr-6" />
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="focus:outline-none flex items-center gap-2"
               >
                 <FaUserCircle className="text-3xl text-primary" />
-                <span className="hidden md:inline text-gray-700">
+                <span className="hidden md:inline text-gray-700 mr-4">
                   {user?.name || "Guest"}
                 </span>
               </button>
@@ -86,6 +88,14 @@ const UserDashboard = ({ user, setUser }) => {
                       </a>
                     </li>
                     <li>
+                      {/* <li>
+                        <a
+                          href="/cart"
+                          className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                        >
+                          View Cart
+                        </a>
+                      </li> */}
                       <a
                         href="/orders"
                         className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
@@ -169,7 +179,7 @@ const UserDashboard = ({ user, setUser }) => {
               <p className="text-gray-600 text-lg">No products found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ">
               {products.map((product) => (
                 <div
                   key={product.Product_id}
@@ -201,7 +211,7 @@ const UserDashboard = ({ user, setUser }) => {
                         {product.Product_name}
                       </h3>
                       <span className="text-primary font-bold text-lg">
-                        ${parseFloat(product.Price).toFixed(2)}
+                        ₹{parseFloat(product.Price).toFixed(2)}
                       </span>
                     </div>
 
