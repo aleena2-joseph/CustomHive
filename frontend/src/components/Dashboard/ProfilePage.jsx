@@ -15,6 +15,8 @@ import {
 const ProfilePage = ({ setUser }) => {
   const [products, setProducts] = useState([]);
 
+  const [showModal, setShowModal] = useState(false);
+
   // States for business types, categories, and subcategories
   const [businessTypes, setBusinessTypes] = useState([]);
   const [selectedBusinessType, setSelectedBusinessType] = useState("");
@@ -22,6 +24,91 @@ const ProfilePage = ({ setUser }) => {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [subcategories, setSubcategories] = useState([]);
   const [selectedSubcategory, setSelectedSubcategory] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  const handleEditClick = (product) => {
+    setSelectedProduct(product); // Store selected product
+    setShowModal(true); // Show the modal
+  };
+
+  // const handleUpdateProduct = async () => {
+  //   try {
+  //     const response = await fetch(
+  //       `/api/update-product/${selectedProduct.Product_id}`,
+  //       {
+  //         method: "PUT",
+  //         headers: { "Content-Type": "application/json" },
+  //         body: JSON.stringify(selectedProduct),
+  //       }
+  //     );
+
+  //     if (response.ok) {
+  //       alert("Product updated successfully!");
+  //       setShowModal(false);
+  //       fetchProducts(); // Refresh products list
+  //     }
+  //   } catch (error) {
+  //     console.error("Error updating product:", error);
+  //   }
+  // };
+
+  // Updated handleUpdateProduct function for your ProfilePage component
+  const handleUpdateProduct = async () => {
+    // Validate inputs
+    if (!selectedProduct.Product_name || !selectedProduct.Price) {
+      alert("Product name and price are required!");
+      return;
+    }
+
+    try {
+      // Collect the data to update
+      const productData = {
+        Product_name: selectedProduct.Product_name,
+        Price: selectedProduct.Price,
+        Description: selectedProduct.Description || "",
+      };
+
+      const response = await axios.put(
+        `http://localhost:5000/api/update-product/${selectedProduct.Product_id}`,
+        productData,
+        {
+          headers: { "Content-Type": "application/json" },
+          withCredentials: true,
+        }
+      );
+
+      if (response.status === 200) {
+        // Update the local products array with the updated product
+        setProducts(
+          products.map((product) =>
+            product.Product_id === selectedProduct.Product_id
+              ? { ...product, ...productData }
+              : product
+          )
+        );
+
+        setShowModal(false);
+        alert("Product updated successfully!");
+      }
+    } catch (error) {
+      console.error("Error updating product:", error);
+      alert(
+        `Error updating product: ${
+          error.response?.data?.error || error.message
+        }`
+      );
+    }
+  };
+
+  // const fetchProducts = async () => {
+  //   try {
+  //     const response = await fetch("/api/all-products");
+  //     const data = await response.json();
+  //     console.log("Fetched Products:", data);
+  //   } catch (error) {
+  //     console.error("Error fetching products:", error);
+  //   }
+  // };
 
   const navigate = useNavigate();
 
@@ -260,7 +347,7 @@ const ProfilePage = ({ setUser }) => {
         {/* Profile Header */}
         <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-full">
+            <div className="bg-gradient-to-br from-primary/40 to-primary/60 p-6 rounded-full">
               <FaUserCircle className="text-6xl text-white" />
             </div>
             <div className="text-center md:text-left">
@@ -268,7 +355,7 @@ const ProfilePage = ({ setUser }) => {
                 {user?.name || "Guest"}
               </h2>
               <p className="text-lg text-gray-600">{user?.email || ""}</p>
-              <div className="mt-2 inline-block bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+              <div className="mt-2 inline-block bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
                 Seller Account
               </div>
             </div>
@@ -291,14 +378,14 @@ const ProfilePage = ({ setUser }) => {
         {/* My Products Section */}
         <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
           <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
-            <FiPackage className="mr-2 text-indigo-600" />
+            <FiPackage className="mr-2 text-primary" />
             My Products
           </h3>
 
           {/* Product Form */}
           <div className="bg-gray-50 rounded-xl p-6 mb-8">
             <h4 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
-              <FiPlusCircle className="mr-2 text-indigo-600" />
+              <FiPlusCircle className="mr-2 text-primary" />
               Add New Product
             </h4>
 
@@ -312,7 +399,7 @@ const ProfilePage = ({ setUser }) => {
                   <select
                     value={selectedBusinessType}
                     onChange={(e) => setSelectedBusinessType(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/10"
                     required
                   >
                     <option value="">Select Business Type</option>
@@ -335,7 +422,7 @@ const ProfilePage = ({ setUser }) => {
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/10 disabled:bg-gray-100 disabled:text-gray-500"
                     required
                     disabled={!selectedBusinessType}
                   >
@@ -360,7 +447,7 @@ const ProfilePage = ({ setUser }) => {
                     name="subcategory_id"
                     value={selectedSubcategory}
                     onChange={(e) => setSelectedSubcategory(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:primary focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:primary focus:border-primary/10 disabled:bg-gray-100 disabled:text-gray-500"
                     required
                     disabled={!selectedCategory}
                   >
@@ -390,7 +477,7 @@ const ProfilePage = ({ setUser }) => {
                       name="name"
                       value={newProduct.name}
                       onChange={handleProductChange}
-                      className="pl-10 w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      className="pl-10 w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:primary/10 focus:border-primary/10"
                       placeholder="Product Name"
                       required
                     />
@@ -411,7 +498,7 @@ const ProfilePage = ({ setUser }) => {
                       name="price"
                       value={newProduct.price}
                       onChange={handleProductChange}
-                      className="pl-10 w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      className="pl-10 w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:primary/10 focus:border-primary/10"
                       placeholder="Price"
                       required
                     />
@@ -428,7 +515,7 @@ const ProfilePage = ({ setUser }) => {
                   name="description"
                   value={newProduct.description}
                   onChange={handleProductChange}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:primary focus:primary/10"
                   placeholder="Product Description"
                   rows="3"
                 />
@@ -481,7 +568,7 @@ const ProfilePage = ({ setUser }) => {
 
               <button
                 type="submit"
-                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition"
+                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary/10 transition"
               >
                 <FiPlusCircle size={20} />
                 <span className="font-medium">Add Product</span>
@@ -536,7 +623,7 @@ const ProfilePage = ({ setUser }) => {
                             >
                               {product.Product_name}
                             </h4>
-                            <span className="text-lg font-bold text-indigo-600">
+                            <span className="text-lg font-bold text-primary ">
                               ₹{product.Price}
                             </span>
                           </div>
@@ -545,6 +632,90 @@ const ProfilePage = ({ setUser }) => {
                           </p>
                         </div>
                         <div className="mt-4 flex justify-end">
+                          <button
+                            onClick={() => handleEditClick(product)}
+                            className="mr-2 text-primary px-3 py-1 rounded-lg bg-primary/10"
+                          >
+                            Edit
+                          </button>
+                          {showModal && selectedProduct && (
+                            <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+                              <div className="bg-white p-5 rounded-lg shadow-lg w-96 max-w-full max-h-[90vh] overflow-y-auto">
+                                <h2 className="text-lg font-semibold mb-3">
+                                  Edit Product
+                                </h2>
+
+                                <div className="mb-3">
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Product Name
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={selectedProduct.Product_name}
+                                    onChange={(e) =>
+                                      setSelectedProduct({
+                                        ...selectedProduct,
+                                        Product_name: e.target.value,
+                                      })
+                                    }
+                                    className="w-full p-2 border rounded"
+                                    required
+                                  />
+                                </div>
+
+                                <div className="mb-3">
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Price
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={selectedProduct.Price}
+                                    onChange={(e) =>
+                                      setSelectedProduct({
+                                        ...selectedProduct,
+                                        Price: e.target.value,
+                                      })
+                                    }
+                                    className="w-full p-2 border rounded"
+                                    required
+                                  />
+                                </div>
+
+                                <div className="mb-3">
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Description
+                                  </label>
+                                  <textarea
+                                    value={selectedProduct.Description || ""}
+                                    onChange={(e) =>
+                                      setSelectedProduct({
+                                        ...selectedProduct,
+                                        Description: e.target.value,
+                                      })
+                                    }
+                                    className="w-full p-2 border rounded"
+                                    rows="3"
+                                  />
+                                </div>
+
+                                <div className="mt-4 flex justify-end">
+                                  <button
+                                    className="px-4 py-2 bg-gray-300 rounded mr-2 hover:bg-gray-400 transition"
+                                    onClick={() => setShowModal(false)}
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition"
+                                    onClick={handleUpdateProduct}
+                                  >
+                                    Save Changes
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           <button
                             onClick={() =>
                               toggleProductStatus(

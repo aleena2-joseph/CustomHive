@@ -818,21 +818,7 @@ app.post("/api/add-category", (req, res) => {
 });
 
 // Fetch all categories
-// app.get("/api/categories", (req, res) => {
-//   const sql = `
-//     SELECT c.category_id, c.category_name, c.description, b.business_id, b.type_name
-//     FROM categories c
-//     JOIN business_types b ON c.business_id = b.business_id
-//   `;
 
-//   db.query(sql, (err, results) => {
-//     if (err) {
-//       console.error("Database Error:", err);
-//       return res.status(500).json({ message: "Internal Server Error" });
-//     }
-//     res.json({ data: results });
-//   });
-// });
 app.get("/api/categories", (req, res) => {
   const { business_id } = req.query; // Get business_id from query parameters
 
@@ -853,6 +839,58 @@ app.get("/api/categories", (req, res) => {
       return res.status(500).json({ message: "Internal Server Error" });
     }
     res.json({ data: results });
+  });
+});
+app.put("/api/update-category/:id", (req, res) => {
+  const { id } = req.params;
+  const { business_id, category_name, description } = req.body;
+
+  // Validate required fields
+  if (!business_id || !category_name) {
+    return res
+      .status(400)
+      .json({ error: "Business type and category name are required" });
+  }
+
+  // First check if the category exists
+  const checkSql = "SELECT * FROM categories WHERE category_id = ?";
+  db.query(checkSql, [id], (checkErr, checkResults) => {
+    if (checkErr) {
+      console.error("Database Error:", checkErr);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (checkResults.length === 0) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    // Update the category
+    const updateSql = `
+      UPDATE categories 
+      SET business_id = ?, category_name = ?, description = ? 
+      WHERE category_id = ?
+    `;
+
+    db.query(
+      updateSql,
+      [business_id, category_name, description || "", id],
+      (updateErr, updateResult) => {
+        if (updateErr) {
+          console.error("Error updating category:", updateErr);
+          return res.status(500).json({ error: "Database error" });
+        }
+
+        res.json({
+          message: "Category updated successfully!",
+          category: {
+            category_id: id,
+            business_id,
+            category_name,
+            description,
+          },
+        });
+      }
+    );
   });
 });
 
@@ -883,23 +921,6 @@ app.post("/api/add-subcategory", (req, res) => {
     }
   );
 });
-
-// Fetch all subcategories
-// app.get("/api/subcategories", (req, res) => {
-//   const sql = `
-//     SELECT s.subcategory_id, s.subcategory_name, s.description, c.category_id, c.category_name
-//     FROM subcategories s
-//     JOIN categories c ON s.category_id = c.category_id
-//   `;
-
-//   db.query(sql, (err, results) => {
-//     if (err) {
-//       console.error("Database Error:", err);
-//       return res.status(500).json({ message: "Internal Server Error" });
-//     }
-//     res.json({ data: results });
-//   });
-// });
 
 // Fetch subcategories with category_id filtering
 app.get("/api/subcategories", (req, res) => {
@@ -935,6 +956,33 @@ const storage = multer.diskStorage({
     const ext = path.extname(file.originalname);
     cb(null, Date.now() + "-" + uuidv4() + ext);
   },
+});
+app.put("/api/update-subcategory/:id", (req, res) => {
+  const { id } = req.params;
+  const { subcategory_name, description } = req.body;
+
+  if (!subcategory_name) {
+    return res.status(400).json({ error: "Subcategory name is required" });
+  }
+
+  const sql =
+    "UPDATE subcategories SET subcategory_name = ?, description = ? WHERE subcategory_id = ?";
+
+  db.query(sql, [subcategory_name, description || "", id], (err, result) => {
+    if (err) {
+      console.error("Error updating subcategory:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Subcategory not found" });
+    }
+
+    res.json({
+      message: "Subcategory updated successfully!",
+      id: id,
+    });
+  });
 });
 
 // Initialize Multer with the storage configuration
@@ -1103,6 +1151,7 @@ app.get("/api/all-products", (req, res) => {
     LEFT JOIN categories c ON s.category_id = c.category_id
     LEFT JOIN business_profile bp ON p.email = bp.email
     LEFT JOIN business_types bt ON bp.business_id = bt.business_id
+      WHERE p.status = 1
     GROUP BY p.Product_id, u.name, c.category_name, s.subcategory_name
     ORDER BY p.Product_id DESC
   `;
@@ -1125,6 +1174,38 @@ app.get("/api/products/count", (req, res) => {
       return res.status(500).json({ error: "Database error" });
     }
     res.json({ totalProducts: results[0].totalProducts });
+  });
+});
+app.put("/api/update-product/:id", (req, res) => {
+  const { id } = req.params;
+  const { Product_name, Price, Description } = req.body;
+
+  // Validate required fields
+  if (!Product_name || !Price) {
+    return res
+      .status(400)
+      .json({ error: "Product name and price are required" });
+  }
+
+  const sql = `UPDATE products SET Product_name = ?, Price = ?, Description = ? WHERE Product_id = ?`;
+
+  db.query(sql, [Product_name, Price, Description, id], (err, result) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    res.json({
+      message: "Product updated successfully!",
+      Product_id: id,
+      Product_name,
+      Price,
+      Description,
+    });
   });
 });
 
