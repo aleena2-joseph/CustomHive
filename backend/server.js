@@ -1091,9 +1091,16 @@ app.post("/api/products", upload.single("image"), (req, res) => {
 // Get products - FIXED to properly handle email filtering
 app.get("/api/products", (req, res) => {
   // Get email either from query params or from session
+  // const email =
+  //   req.query.email ||
+  //   (req.session && req.session.user ? req.session.user.email : null);
   const email =
     req.query.email ||
-    (req.session && req.session.user ? req.session.user.email : null);
+    (req.session && req.session.user && req.session.user.email) ||
+    (req.session &&
+      req.session.passport &&
+      req.session.passport.user &&
+      req.session.passport.user.email);
 
   // If no email available, return all products
   if (!email) {

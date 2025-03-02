@@ -14,7 +14,6 @@ import {
 
 const ProfilePage = ({ setUser }) => {
   const [products, setProducts] = useState([]);
-
   const [showModal, setShowModal] = useState(false);
 
   // States for business types, categories, and subcategories
@@ -31,28 +30,7 @@ const ProfilePage = ({ setUser }) => {
     setShowModal(true); // Show the modal
   };
 
-  // const handleUpdateProduct = async () => {
-  //   try {
-  //     const response = await fetch(
-  //       `/api/update-product/${selectedProduct.Product_id}`,
-  //       {
-  //         method: "PUT",
-  //         headers: { "Content-Type": "application/json" },
-  //         body: JSON.stringify(selectedProduct),
-  //       }
-  //     );
-
-  //     if (response.ok) {
-  //       alert("Product updated successfully!");
-  //       setShowModal(false);
-  //       fetchProducts(); // Refresh products list
-  //     }
-  //   } catch (error) {
-  //     console.error("Error updating product:", error);
-  //   }
-  // };
-
-  // Updated handleUpdateProduct function for your ProfilePage component
+  // Updated handleUpdateProduct function with authentication
   const handleUpdateProduct = async () => {
     // Validate inputs
     if (!selectedProduct.Product_name || !selectedProduct.Price) {
@@ -73,7 +51,7 @@ const ProfilePage = ({ setUser }) => {
         productData,
         {
           headers: { "Content-Type": "application/json" },
-          withCredentials: true,
+          withCredentials: true, // Important for authentication
         }
       );
 
@@ -99,16 +77,6 @@ const ProfilePage = ({ setUser }) => {
       );
     }
   };
-
-  // const fetchProducts = async () => {
-  //   try {
-  //     const response = await fetch("/api/all-products");
-  //     const data = await response.json();
-  //     console.log("Fetched Products:", data);
-  //   } catch (error) {
-  //     console.error("Error fetching products:", error);
-  //   }
-  // };
 
   const navigate = useNavigate();
 
@@ -145,20 +113,40 @@ const ProfilePage = ({ setUser }) => {
     price: "",
     image: null,
   });
-  const userEmail = user?.email || "";
 
+  // Fetch products for the current user (using session)
+  // useEffect(() => {
+  //   if (user && user.email) {
+  //     axios
+  //       .get("http://localhost:5000/api/products", {
+  //         withCredentials: true,
+  //       })
+  //       .then((response) => {
+  //         console.log("Products:", response.data);
+  //         setProducts(response.data);
+  //       })
+  //       .catch((error) => console.error("Error fetching products:", error));
+  //   }
+  // }, [user]);
+  // Fetch products for the current user (using session and explicit email parameter)
   useEffect(() => {
-    if (userEmail) {
+    if (user && user.email) {
       axios
-        .get("http://localhost:5000/api/products", { withCredentials: true })
+        .get(
+          `http://localhost:5000/api/products?email=${encodeURIComponent(
+            user.email
+          )}`,
+          {
+            withCredentials: true,
+          }
+        )
         .then((response) => {
           console.log("Products:", response.data);
           setProducts(response.data);
         })
         .catch((error) => console.error("Error fetching products:", error));
     }
-  }, [userEmail]);
-
+  }, [user]);
   // Logout handler
   const handleLogout = async () => {
     try {
@@ -175,19 +163,6 @@ const ProfilePage = ({ setUser }) => {
     setUserState(null);
     navigate("/login");
   };
-
-  // Fetch products for the current user (using session)
-  useEffect(() => {
-    if (user && user.email) {
-      axios
-        .get("http://localhost:5000/api/products", { withCredentials: true })
-        .then((response) => {
-          console.log("Products:", response.data);
-          setProducts(response.data);
-        })
-        .catch((error) => console.error("Error fetching products:", error));
-    }
-  }, [user]);
 
   // Fetch business types on mount
   useEffect(() => {
@@ -282,9 +257,6 @@ const ProfilePage = ({ setUser }) => {
     formData.append("description", newProduct.description);
     formData.append("price", newProduct.price);
     formData.append("subcategory_id", selectedSubcategory);
-    // Use session email from user
-    formData.append("email", user.email);
-    // Selected business type is used as business_id
     formData.append("business_id", selectedBusinessType);
     if (newProduct.image) {
       formData.append("image", newProduct.image);
