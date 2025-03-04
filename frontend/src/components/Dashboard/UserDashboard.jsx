@@ -104,7 +104,7 @@ const UserDashboard = ({ user, setUser }) => {
                 </span>
               </button>
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-20">
+                <div className="absolute right-0 mt-32 w-48 bg-white border rounded-lg shadow-lg z-20">
                   <ul className="py-2">
                     <li>
                       <a

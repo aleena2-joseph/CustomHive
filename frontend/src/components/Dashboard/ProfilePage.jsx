@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import PropTypes from "prop-types";
-import { useNavigate } from "react-router-dom";
-import { FaUserCircle } from "react-icons/fa";
+import { Link, useNavigate } from "react-router-dom";
+import logo from "../Products/Navbar/logo.png";
+import { FaUserCircle, FaArrowLeft } from "react-icons/fa";
 import {
-  FiEdit,
-  FiLogOut,
   FiPlusCircle,
   FiDollarSign,
   FiPackage,
   FiTag,
+  FiEdit,
 } from "react-icons/fi";
 
 const ProfilePage = ({ setUser }) => {
@@ -315,6 +315,68 @@ const ProfilePage = ({ setUser }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
+        <div className="container mx-auto px-4 flex justify-between items-center">
+          <div>
+            <Link
+              to="/dashboard"
+              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
+            >
+              <img src={logo} alt="logo" className="w-10" />
+              <span className="text-primary">CustomHive</span>
+            </Link>
+          </div>
+          <button className="focus:outline-none flex items-center gap-2 -mr-96">
+            <FaUserCircle className="text-3xl text-primary" />
+            <span className="hidden md:inline text-gray-700">
+              {user?.name || "Guest"}
+            </span>
+          </button>
+          <div className="flex items-center gap-6">
+            <button
+              onClick={handleLogout}
+              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div> */}
+      <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
+        <div className="container mx-auto px-4 flex justify-between items-center">
+          <div>
+            <Link
+              to="/dashboard"
+              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
+            >
+              <img src={logo} alt="logo" className="w-10" />
+              <span className="text-primary">CustomHive</span>
+            </Link>
+          </div>
+          <div className="flex items-center gap-4 ml-auto">
+            <FaUserCircle className="text-3xl text-primary" />
+            <span className="hidden md:inline text-gray-700">
+              {user?.name || "Guest"}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 text-primary hover:text-primary/80 transition-colors ml-10 mt-5">
+        <Link to="/dashboard" className="flex items-center">
+          <h3 className="flex items-center">
+            <FaArrowLeft className="mr-2" />
+            Back to Dashboard
+          </h3>
+        </Link>
+      </div>
+
       <div className="max-w-5xl mx-auto p-6">
         {/* Profile Header */}
         <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
@@ -336,13 +398,13 @@ const ProfilePage = ({ setUser }) => {
                 <FiEdit size={18} />
                 <span>Edit Profile</span>
               </button>
-              <button
+              {/* <button
                 className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 transition"
                 onClick={handleLogout}
               >
                 <FiLogOut size={18} />
                 <span>Logout</span>
-              </button>
+              </button> */}
             </div>
           </div>
         </div>

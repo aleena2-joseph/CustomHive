@@ -374,7 +374,7 @@ const Category = ({ setUser }) => {
                   <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
                 </div>
               ) : categories.length > 0 ? (
-                <div className="overflow-x-auto">
+                <div>
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-gray-50">
