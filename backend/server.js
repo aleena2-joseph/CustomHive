@@ -823,7 +823,14 @@ app.get("/api/categories", (req, res) => {
   const { business_id } = req.query; // Get business_id from query parameters
 
   let sql = `
-    SELECT c.category_id, c.category_name, c.description, b.business_id, b.type_name
+    SELECT 
+      c.category_id, 
+      c.category_name, 
+      c.description, 
+      c.min_price, 
+      c.max_price, 
+      b.business_id, 
+      b.type_name
     FROM categories c
     JOIN business_types b ON c.business_id = b.business_id
   `;
@@ -841,6 +848,7 @@ app.get("/api/categories", (req, res) => {
     res.json({ data: results });
   });
 });
+
 // app.get("/api/categories", (req, res) => {
 //   const { business_id, category_ids } = req.query; // Get business_id and selected categories
 
@@ -881,13 +889,30 @@ app.get("/api/categories", (req, res) => {
 
 app.put("/api/update-category/:id", (req, res) => {
   const { id } = req.params;
-  const { business_id, category_name, description } = req.body;
+  const { business_id, category_name, description, min_price, max_price } =
+    req.body;
 
   // Validate required fields
-  if (!business_id || !category_name) {
+  if (
+    !business_id ||
+    !category_name ||
+    min_price === undefined ||
+    max_price === undefined
+  ) {
+    return res.status(400).json({
+      error:
+        "Business type, category name, min_price, and max_price are required",
+    });
+  }
+
+  if (parseFloat(min_price) < 0 || parseFloat(max_price) < 0) {
+    return res.status(400).json({ error: "Price range cannot be negative." });
+  }
+
+  if (parseFloat(min_price) > parseFloat(max_price)) {
     return res
       .status(400)
-      .json({ error: "Business type and category name are required" });
+      .json({ error: "min_price cannot be greater than max_price." });
   }
 
   // First check if the category exists
@@ -902,16 +927,16 @@ app.put("/api/update-category/:id", (req, res) => {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    // Update the category
+    // Update the category including min_price and max_price
     const updateSql = `
       UPDATE categories 
-      SET business_id = ?, category_name = ?, description = ? 
+      SET business_id = ?, category_name = ?, description = ?, min_price = ?, max_price = ? 
       WHERE category_id = ?
     `;
 
     db.query(
       updateSql,
-      [business_id, category_name, description || "", id],
+      [business_id, category_name, description || "", min_price, max_price, id],
       (updateErr, updateResult) => {
         if (updateErr) {
           console.error("Error updating category:", updateErr);
@@ -925,6 +950,8 @@ app.put("/api/update-category/:id", (req, res) => {
             business_id,
             category_name,
             description,
+            min_price,
+            max_price,
           },
         });
       }
@@ -1045,8 +1072,7 @@ app.post("/api/products", upload.single("image"), (req, res) => {
       business_id,
     });
     return res.status(400).json({
-      error:
-        "Product name, price, subcategory_id, email, and business_id are required",
+      error: "Enter all fileds correctly",
     });
   }
 
@@ -1142,6 +1168,36 @@ app.post("/api/products", upload.single("image"), (req, res) => {
         );
       }
     );
+  });
+});
+// Add this endpoint to your server.js or routes file
+app.get("/api/price-range", (req, res) => {
+  const { business_id, subcategory_id } = req.query;
+
+  if (!business_id || !subcategory_id) {
+    return res
+      .status(400)
+      .json({ error: "Missing business_id or subcategory_id" });
+  }
+
+  const query = `
+    SELECT c.min_price, c.max_price 
+    FROM categories c
+    JOIN subcategories s ON c.category_id = s.category_id
+    WHERE c.business_id = ? AND s.subcategory_id = ?
+  `;
+
+  db.query(query, [business_id, subcategory_id], (err, results) => {
+    if (err) {
+      console.error("Database query error:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: "No matching price range found" });
+    }
+
+    res.json(results[0]); // Return the first matching result
   });
 });
 

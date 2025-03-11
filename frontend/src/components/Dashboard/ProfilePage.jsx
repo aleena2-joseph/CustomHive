@@ -15,6 +15,8 @@ import {
 const ProfilePage = ({ setUser }) => {
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [priceRangeError, setPriceRangeError] = useState("");
+  const [priceRange, setPriceRange] = useState({ min: null, max: null });
 
   // States for business types, categories, and subcategories
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -34,7 +36,7 @@ const ProfilePage = ({ setUser }) => {
   const handleUpdateProduct = async () => {
     // Validate inputs
     if (!selectedProduct.Product_name || !selectedProduct.Price) {
-      alert("Product name and price are required!");
+      alert("Enter all fields correctly!");
       return;
     }
 
@@ -114,20 +116,6 @@ const ProfilePage = ({ setUser }) => {
     image: null,
   });
 
-  // Fetch products for the current user (using session)
-  // useEffect(() => {
-  //   if (user && user.email) {
-  //     axios
-  //       .get("http://localhost:5000/api/products", {
-  //         withCredentials: true,
-  //       })
-  //       .then((response) => {
-  //         console.log("Products:", response.data);
-  //         setProducts(response.data);
-  //       })
-  //       .catch((error) => console.error("Error fetching products:", error));
-  //   }
-  // }, [user]);
   // Fetch products for the current user (using session and explicit email parameter)
   useEffect(() => {
     if (user && user.email) {
@@ -147,6 +135,33 @@ const ProfilePage = ({ setUser }) => {
         .catch((error) => console.error("Error fetching products:", error));
     }
   }, [user]);
+
+  // Fetch price range when subcategory changes
+  useEffect(() => {
+    if (selectedSubcategory && selectedBusinessType) {
+      axios
+        .get(
+          `http://localhost:5000/api/price-range?business_id=${selectedBusinessType}&subcategory_id=${selectedSubcategory}`
+        )
+        .then((response) => {
+          if (
+            response.data.min_price !== undefined &&
+            response.data.max_price !== undefined
+          ) {
+            setPriceRange({
+              min: response.data.min_price,
+              max: response.data.max_price,
+            });
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching price range:", error);
+        });
+    } else {
+      setPriceRange({ min: null, max: null });
+    }
+  }, [selectedSubcategory, selectedBusinessType]);
+
   // Logout handler
   const handleLogout = async () => {
     try {
@@ -191,12 +206,16 @@ const ProfilePage = ({ setUser }) => {
           // Reset subcategory-related selections
           setSelectedCategory("");
           setSelectedSubcategory("");
+          setPriceRange({ min: null, max: null });
+          setPriceRangeError("");
         })
         .catch((error) => console.error("Error fetching categories:", error));
     } else {
       setCategories([]);
       setSelectedCategory("");
       setSelectedSubcategory("");
+      setPriceRange({ min: null, max: null });
+      setPriceRangeError("");
     }
   }, [selectedBusinessType]);
 
@@ -213,6 +232,8 @@ const ProfilePage = ({ setUser }) => {
           const subcategoriesData = response.data.data || [];
           setSubcategories(subcategoriesData);
           setSelectedSubcategory("");
+          setPriceRange({ min: null, max: null });
+          setPriceRangeError("");
         })
         .catch((error) =>
           console.error("Error fetching subcategories:", error)
@@ -220,12 +241,19 @@ const ProfilePage = ({ setUser }) => {
     } else {
       setSubcategories([]);
       setSelectedSubcategory("");
+      setPriceRange({ min: null, max: null });
+      setPriceRangeError("");
     }
   }, [selectedCategory]);
 
   // Handle changes in text fields
   const handleProductChange = (e) => {
     setNewProduct({ ...newProduct, [e.target.name]: e.target.value });
+
+    // Clear price range error when user changes the price
+    if (e.target.name === "price") {
+      setPriceRangeError("");
+    }
   };
 
   // Handle file input for image upload
@@ -236,6 +264,9 @@ const ProfilePage = ({ setUser }) => {
   // Add a new product with image upload and update business_profile
   const addProduct = async (e) => {
     e.preventDefault();
+
+    // Reset error states
+    setPriceRangeError("");
 
     // Validate required fields
     if (
@@ -278,14 +309,28 @@ const ProfilePage = ({ setUser }) => {
       // Don't reset selections to improve user experience
     } catch (error) {
       console.error("Error adding product:", error);
+
       if (error.response) {
         console.error("Server response status:", error.response.status);
         console.error("Server response data:", error.response.data);
-        console.log("Full server response:", error.response);
+
+        // Handle price range error specifically
+        if (
+          error.response.data.error &&
+          error.response.data.error.includes("Price should be between")
+        ) {
+          setPriceRangeError(error.response.data.error);
+        } else {
+          alert(
+            `Error: ${error.response.data.error || "Unknown error occurred"}`
+          );
+        }
       } else if (error.request) {
         console.error("No response received:", error.request);
+        alert("No response received from server. Please try again.");
       } else {
         console.error("Error during request setup:", error.message);
+        alert(`Error: ${error.message}`);
       }
     }
   };
@@ -315,33 +360,6 @@ const ProfilePage = ({ setUser }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div>
-            <Link
-              to="/dashboard"
-              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
-            >
-              <img src={logo} alt="logo" className="w-10" />
-              <span className="text-primary">CustomHive</span>
-            </Link>
-          </div>
-          <button className="focus:outline-none flex items-center gap-2 -mr-96">
-            <FaUserCircle className="text-3xl text-primary" />
-            <span className="hidden md:inline text-gray-700">
-              {user?.name || "Guest"}
-            </span>
-          </button>
-          <div className="flex items-center gap-6">
-            <button
-              onClick={handleLogout}
-              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div> */}
       <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div>
@@ -398,13 +416,6 @@ const ProfilePage = ({ setUser }) => {
                 <FiEdit size={18} />
                 <span>Edit Profile</span>
               </button>
-              {/* <button
-                className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 transition"
-                onClick={handleLogout}
-              >
-                <FiLogOut size={18} />
-                <span>Logout</span>
-              </button> */}
             </div>
           </div>
         </div>
@@ -521,7 +532,10 @@ const ProfilePage = ({ setUser }) => {
                 {/* Price */}
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Price
+                    Price{" "}
+                    {priceRange.min !== null &&
+                      priceRange.max !== null &&
+                      `(Range: ₹${priceRange.min} - ₹${priceRange.max})`}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -532,11 +546,18 @@ const ProfilePage = ({ setUser }) => {
                       name="price"
                       value={newProduct.price}
                       onChange={handleProductChange}
-                      className="pl-10 w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:primary/10 focus:border-primary/10"
+                      className={`pl-10 w-full border ${
+                        priceRangeError ? "border-red-500" : "border-gray-300"
+                      } rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:primary/10 focus:border-primary/10`}
                       placeholder="Price"
                       required
                     />
                   </div>
+                  {priceRangeError && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {priceRangeError}
+                    </p>
+                  )}
                 </div>
               </div>
 

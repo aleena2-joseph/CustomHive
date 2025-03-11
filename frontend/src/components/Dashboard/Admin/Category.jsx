@@ -562,7 +562,7 @@ const Category = ({ setUser }) => {
                             {category.min_price !== undefined &&
                             category.max_price !== undefined ? (
                               <span className="text-gray-700">
-                                ${parseFloat(category.min_price).toFixed(2)} - $
+                                ₹{parseFloat(category.min_price).toFixed(2)} - ₹
                                 {parseFloat(category.max_price).toFixed(2)}
                               </span>
                             ) : (
