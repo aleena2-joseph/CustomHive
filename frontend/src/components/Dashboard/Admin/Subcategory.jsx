@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import Sidebar from "../../Hero/Sidebar";
 import PropTypes from "prop-types";
 import axios from "axios";
-import { Edit2, Trash2, Save, X } from "lucide-react";
+import { Trash2, Save, X } from "lucide-react";
+import { FiEdit } from "react-icons/fi";
 
 const SubCategory = ({ setUser }) => {
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -433,19 +434,7 @@ const SubCategory = ({ setUser }) => {
                         )}
                       </td>
                       <td className="px-4 py-3">{subCategory.category_name}</td>
-                      {/* <td className="px-4 py-3">
-                        {isEditing &&
-                        editingId === subCategory.subcategory_id ? (
-                          <input
-                            type="text"
-                            value={editDescription}
-                            onChange={(e) => setEditDescription(e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded focus:ring-blue-400 focus:border-blue-400"
-                          />
-                        ) : (
-                          subCategory.description || "N/A"
-                        )}
-                      </td> */}
+
                       <td className="px-4 py-3 text-center">
                         {isEditing &&
                         editingId === subCategory.subcategory_id ? (
@@ -471,11 +460,13 @@ const SubCategory = ({ setUser }) => {
                           <div className="flex justify-center space-x-2">
                             <button
                               onClick={() => handleEdit(subCategory)}
-                              className="p-1 text-blue-600 hover:text-blue-800"
+                              className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors"
                               title="Edit"
                             >
-                              <Edit2 size={18} />
+                              <FiEdit className="mr-1" />
+                              Edit
                             </button>
+
                             <button
                               onClick={() =>
                                 handleDelete(subCategory.subcategory_id)

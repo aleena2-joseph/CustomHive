@@ -2,14 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../../Hero/Sidebar";
 import PropTypes from "prop-types";
 import axios from "axios";
-import {
-  FiEdit,
-  FiPlusCircle,
-  FiPackage,
-  FiSave,
-  FiX,
-  FiFilter,
-} from "react-icons/fi";
+import { FiEdit, FiPlusCircle, FiPackage, FiSave, FiX } from "react-icons/fi";
 
 const Category = ({ setUser }) => {
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -23,7 +16,6 @@ const Category = ({ setUser }) => {
   const [currentCategory, setCurrentCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [filterBusinessId, setFilterBusinessId] = useState(""); // New state for filtering categories display
 
   // Function to fetch categories with optional business_id filter
   const fetchCategories = useCallback(async (businessId = null) => {
@@ -74,12 +66,14 @@ const Category = ({ setUser }) => {
     fetchCategories(); // Fetch all categories initially
   }, [fetchCategories]);
 
-  // Handle business filter change
-  const handleBusinessFilterChange = (e) => {
-    const businessId = e.target.value;
-    setFilterBusinessId(businessId);
-    fetchCategories(businessId || null); // Fetch filtered categories or all if no filter
-  };
+  // Watch for changes to selectedBusiness and fetch categories accordingly
+  useEffect(() => {
+    if (selectedBusiness) {
+      fetchCategories(selectedBusiness);
+    } else {
+      fetchCategories();
+    }
+  }, [selectedBusiness, fetchCategories]);
 
   // Handle form submission for adding a new category
   const handleSubmit = async (e) => {
@@ -132,12 +126,12 @@ const Category = ({ setUser }) => {
       // Reset form fields
       setCategoryName("");
       setDescription("");
-      setSelectedBusiness("");
       setMinPrice("");
       setMaxPrice("");
+      // Don't reset the selected business to maintain the current view
 
-      // Refresh categories list with current filter
-      fetchCategories(filterBusinessId || null);
+      // Refresh categories list with current business selection
+      fetchCategories(selectedBusiness || null);
     } catch (error) {
       console.error("Error adding category:", error);
 
@@ -227,14 +221,13 @@ const Category = ({ setUser }) => {
       // Reset form and edit mode
       setCategoryName("");
       setDescription("");
-      setSelectedBusiness("");
       setMinPrice("");
       setMaxPrice("");
       setEditMode(false);
       setCurrentCategory(null);
 
-      // Refresh categories list with current filter
-      fetchCategories(filterBusinessId || null);
+      // Refresh categories list with current business selection
+      fetchCategories(selectedBusiness || null);
     } catch (error) {
       console.error("Error updating category:", error);
 
@@ -263,9 +256,9 @@ const Category = ({ setUser }) => {
     setCurrentCategory(null);
     setCategoryName("");
     setDescription("");
-    setSelectedBusiness("");
     setMinPrice("");
     setMaxPrice("");
+    // Don't reset the selected business to maintain the current view
   };
 
   // Filter categories based on search term
@@ -277,13 +270,6 @@ const Category = ({ setUser }) => {
         ?.type_name.toLowerCase()
         .includes(searchTerm.toLowerCase())
   );
-
-  // Clear all filters
-  const clearFilters = () => {
-    setFilterBusinessId("");
-    setSearchTerm("");
-    fetchCategories(); // Fetch all categories
-  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -458,60 +444,29 @@ const Category = ({ setUser }) => {
                   Category List
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  Manage your product categories
+                  {selectedBusiness
+                    ? `Showing categories for ${
+                        businessTypes.find(
+                          (b) => b.business_id === selectedBusiness
+                        )?.type_name || "selected business"
+                      }`
+                    : "Manage your product categories"}
                 </p>
               </div>
             </div>
 
-            {/* Filter and Search Controls */}
-            <div className="px-6 pt-4 space-y-3">
-              {/* Business Type Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <FiFilter className="inline mr-1" /> Filter by Business Type:
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    value={filterBusinessId}
-                    onChange={handleBusinessFilterChange}
-                    className="flex-grow p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">All Business Types</option>
-                    {businessTypes.map((business) => (
-                      <option
-                        key={business.business_id}
-                        value={business.business_id}
-                      >
-                        {business.type_name}
-                      </option>
-                    ))}
-                  </select>
-
-                  {(filterBusinessId || searchTerm) && (
-                    <button
-                      onClick={clearFilters}
-                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center"
-                    >
-                      <FiX className="mr-1" />
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Search box */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Search:
-                </label>
-                <input
-                  type="text"
-                  placeholder="Search categories..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+            {/* Search box */}
+            <div className="px-6 pt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Search:
+              </label>
+              <input
+                type="text"
+                placeholder="Search categories..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
             </div>
 
             <div className="p-6">
