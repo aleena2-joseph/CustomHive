@@ -2,24 +2,40 @@ import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../../Hero/Sidebar";
 import PropTypes from "prop-types";
 import axios from "axios";
-import { FiEdit, FiPlusCircle, FiPackage, FiSave, FiX } from "react-icons/fi";
+import {
+  FiEdit,
+  FiPlusCircle,
+  FiPackage,
+  FiSave,
+  FiX,
+  FiFilter,
+} from "react-icons/fi";
 
 const Category = ({ setUser }) => {
   const [businessTypes, setBusinessTypes] = useState([]);
   const [selectedBusiness, setSelectedBusiness] = useState("");
   const [categoryName, setCategoryName] = useState("");
   const [description, setDescription] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
   const [categories, setCategories] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [currentCategory, setCurrentCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [filterBusinessId, setFilterBusinessId] = useState(""); // New state for filtering categories display
 
-  // Function to fetch categories
-  const fetchCategories = useCallback(async () => {
+  // Function to fetch categories with optional business_id filter
+  const fetchCategories = useCallback(async (businessId = null) => {
     setIsLoading(true);
     try {
-      const response = await axios.get("http://localhost:5000/api/categories");
+      // Build the URL with query parameters if businessId is provided
+      let url = "http://localhost:5000/api/categories";
+      if (businessId) {
+        url += `?business_id=${businessId}`;
+      }
+
+      const response = await axios.get(url);
 
       if (response.data && Array.isArray(response.data.data)) {
         setCategories(response.data.data);
@@ -55,15 +71,34 @@ const Category = ({ setUser }) => {
     };
 
     fetchBusinessTypes();
-    fetchCategories();
+    fetchCategories(); // Fetch all categories initially
   }, [fetchCategories]);
+
+  // Handle business filter change
+  const handleBusinessFilterChange = (e) => {
+    const businessId = e.target.value;
+    setFilterBusinessId(businessId);
+    fetchCategories(businessId || null); // Fetch filtered categories or all if no filter
+  };
 
   // Handle form submission for adding a new category
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!selectedBusiness || !categoryName.trim()) {
-      alert("Please select a business type and enter a category name.");
+    if (
+      !selectedBusiness ||
+      !categoryName.trim() ||
+      minPrice === "" ||
+      maxPrice === ""
+    ) {
+      alert(
+        "Please select a business type, enter a category name, and set price range."
+      );
+      return;
+    }
+
+    if (parseFloat(minPrice) > parseFloat(maxPrice)) {
+      alert("Minimum price cannot be greater than maximum price.");
       return;
     }
 
@@ -75,6 +110,8 @@ const Category = ({ setUser }) => {
           business_id: selectedBusiness,
           category_name: categoryName.trim(),
           description: description.trim(),
+          min_price: minPrice,
+          max_price: maxPrice,
         }
       );
 
@@ -96,9 +133,11 @@ const Category = ({ setUser }) => {
       setCategoryName("");
       setDescription("");
       setSelectedBusiness("");
+      setMinPrice("");
+      setMaxPrice("");
 
-      // Refresh categories list
-      fetchCategories();
+      // Refresh categories list with current filter
+      fetchCategories(filterBusinessId || null);
     } catch (error) {
       console.error("Error adding category:", error);
 
@@ -127,6 +166,8 @@ const Category = ({ setUser }) => {
     setCategoryName(category.category_name);
     setDescription(category.description || "");
     setSelectedBusiness(category.business_id);
+    setMinPrice(category.min_price || "");
+    setMaxPrice(category.max_price || "");
     setEditMode(true);
 
     // Scroll to the form
@@ -139,8 +180,20 @@ const Category = ({ setUser }) => {
   const handleUpdateCategory = async (e) => {
     e.preventDefault();
 
-    if (!selectedBusiness || !categoryName.trim()) {
-      alert("Please select a business type and enter a category name.");
+    if (
+      !selectedBusiness ||
+      !categoryName.trim() ||
+      minPrice === "" ||
+      maxPrice === ""
+    ) {
+      alert(
+        "Please select a business type, enter a category name, and set price range."
+      );
+      return;
+    }
+
+    if (parseFloat(minPrice) > parseFloat(maxPrice)) {
+      alert("Minimum price cannot be greater than maximum price.");
       return;
     }
 
@@ -152,6 +205,8 @@ const Category = ({ setUser }) => {
           business_id: selectedBusiness,
           category_name: categoryName.trim(),
           description: description.trim(),
+          min_price: minPrice,
+          max_price: maxPrice,
         }
       );
 
@@ -173,11 +228,13 @@ const Category = ({ setUser }) => {
       setCategoryName("");
       setDescription("");
       setSelectedBusiness("");
+      setMinPrice("");
+      setMaxPrice("");
       setEditMode(false);
       setCurrentCategory(null);
 
-      // Refresh categories list
-      fetchCategories();
+      // Refresh categories list with current filter
+      fetchCategories(filterBusinessId || null);
     } catch (error) {
       console.error("Error updating category:", error);
 
@@ -207,6 +264,8 @@ const Category = ({ setUser }) => {
     setCategoryName("");
     setDescription("");
     setSelectedBusiness("");
+    setMinPrice("");
+    setMaxPrice("");
   };
 
   // Filter categories based on search term
@@ -218,6 +277,13 @@ const Category = ({ setUser }) => {
         ?.type_name.toLowerCase()
         .includes(searchTerm.toLowerCase())
   );
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilterBusinessId("");
+    setSearchTerm("");
+    fetchCategories(); // Fetch all categories
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -300,6 +366,38 @@ const Category = ({ setUser }) => {
                 />
               </div>
 
+              {/* Price Range Inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Minimum Price:
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Maximum Price:
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  />
+                </div>
+              </div>
+
               {/* Submit Buttons */}
               <div className="flex gap-3">
                 {editMode && (
@@ -316,10 +414,18 @@ const Category = ({ setUser }) => {
                 <button
                   type="submit"
                   disabled={
-                    !selectedBusiness || !categoryName.trim() || isLoading
+                    !selectedBusiness ||
+                    !categoryName.trim() ||
+                    minPrice === "" ||
+                    maxPrice === "" ||
+                    isLoading
                   }
                   className={`flex items-center justify-center flex-1 px-4 py-2.5 font-medium rounded-lg transition ${
-                    !selectedBusiness || !categoryName.trim() || isLoading
+                    !selectedBusiness ||
+                    !categoryName.trim() ||
+                    minPrice === "" ||
+                    maxPrice === "" ||
+                    isLoading
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : editMode
                       ? "bg-amber-500 hover:bg-amber-600 text-white"
@@ -357,15 +463,55 @@ const Category = ({ setUser }) => {
               </div>
             </div>
 
-            {/* Search box */}
-            <div className="px-6 pt-4">
-              <input
-                type="text"
-                placeholder="Search categories..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+            {/* Filter and Search Controls */}
+            <div className="px-6 pt-4 space-y-3">
+              {/* Business Type Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <FiFilter className="inline mr-1" /> Filter by Business Type:
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={filterBusinessId}
+                    onChange={handleBusinessFilterChange}
+                    className="flex-grow p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Business Types</option>
+                    {businessTypes.map((business) => (
+                      <option
+                        key={business.business_id}
+                        value={business.business_id}
+                      >
+                        {business.type_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {(filterBusinessId || searchTerm) && (
+                    <button
+                      onClick={clearFilters}
+                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center"
+                    >
+                      <FiX className="mr-1" />
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Search box */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Search:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search categories..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
             </div>
 
             <div className="p-6">
@@ -385,7 +531,7 @@ const Category = ({ setUser }) => {
                           Business Type
                         </th>
                         <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Description
+                          Price Range
                         </th>
                         <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
@@ -405,18 +551,27 @@ const Category = ({ setUser }) => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {businessTypes.find(
-                                (b) => b.business_id === category.business_id
-                              )?.type_name || "Unknown"}
+                              {category.type_name ||
+                                businessTypes.find(
+                                  (b) => b.business_id === category.business_id
+                                )?.type_name ||
+                                "Unknown"}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-600 max-w-xs truncate">
-                              {category.description ||
-                                "No description provided"}
-                            </div>
-                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
+                            {category.min_price !== undefined &&
+                            category.max_price !== undefined ? (
+                              <span className="text-gray-700">
+                                ${parseFloat(category.min_price).toFixed(2)} - $
+                                {parseFloat(category.max_price).toFixed(2)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic">
+                                Not set
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4 whitespace-nowrap">
                             <button
                               onClick={() => handleEditClick(category)}
                               className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors"

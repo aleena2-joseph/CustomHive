@@ -823,7 +823,7 @@ app.get("/api/categories", (req, res) => {
   const { business_id } = req.query; // Get business_id from query parameters
 
   let sql = `
-    SELECT c.category_id, c.category_name, c.description, b.business_id, b.type_name 
+    SELECT c.category_id, c.category_name, c.description, b.business_id, b.type_name
     FROM categories c
     JOIN business_types b ON c.business_id = b.business_id
   `;
@@ -841,6 +841,44 @@ app.get("/api/categories", (req, res) => {
     res.json({ data: results });
   });
 });
+// app.get("/api/categories", (req, res) => {
+//   const { business_id, category_ids } = req.query; // Get business_id and selected categories
+
+//   let sql = `
+//     SELECT c.category_id, c.category_name, c.description, b.business_id, b.type_name
+//     FROM categories c
+//     JOIN business_types b ON c.business_id = b.business_id
+//   `;
+
+//   let params = [];
+//   let conditions = [];
+
+//   if (business_id) {
+//     conditions.push("c.business_id = ?");
+//     params.push(business_id);
+//   }
+
+//   if (category_ids) {
+//     const categoryArray = category_ids.split(",").map(Number); // Convert to array of numbers
+//     const placeholders = categoryArray.map(() => "?").join(",");
+//     conditions.push(`c.category_id IN (${placeholders})`);
+//     params.push(...categoryArray);
+//   }
+
+//   // Add WHERE clause only if conditions exist
+//   if (conditions.length) {
+//     sql += " WHERE " + conditions.join(" AND ");
+//   }
+
+//   db.query(sql, params, (err, results) => {
+//     if (err) {
+//       console.error("Database Error:", err);
+//       return res.status(500).json({ message: "Internal Server Error" });
+//     }
+//     res.json({ data: results });
+//   });
+// });
+
 app.put("/api/update-category/:id", (req, res) => {
   const { id } = req.params;
   const { business_id, category_name, description } = req.body;
@@ -991,26 +1029,13 @@ const upload = multer({ storage: storage });
 // Add a new product
 
 app.post("/api/products", upload.single("image"), (req, res) => {
-  // Debugging logs
   console.log("Request body:", req.body);
 
-  // Extract fields from req.body
   const { name, description, price, subcategory_id, business_id, email } =
     req.body;
-
-  // Get email from different possible sources
   const userEmail =
     email || (req.session && req.session.user ? req.session.user.email : null);
 
-  // Log all possible sources for debugging
-  console.log({
-    bodyEmail: email,
-    sessionUserEmail:
-      req.session && req.session.user ? req.session.user.email : null,
-    userEmail,
-  });
-
-  // Check for missing fields and log them
   if (!name || !price || !subcategory_id || !userEmail || !business_id) {
     console.error("Missing fields:", {
       name,
@@ -1025,67 +1050,99 @@ app.post("/api/products", upload.single("image"), (req, res) => {
     });
   }
 
-  // Get image file path if uploaded
-  const imagePath = req.file ? req.file.path : null;
-  const status = 1; // default status
-
-  // Insert into products
-  const sql = `
-    INSERT INTO products (Product_name, Description, Price, Subcategory_id, Status, Product_image, email)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+  // Check price range from the `categories` table
+  const categoryQuery = `
+    SELECT min_price, max_price FROM categories 
+    WHERE business_id = ? AND category_id = (SELECT category_id FROM subcategories WHERE subcategory_id = ?)
   `;
-  db.query(
-    sql,
-    [
-      name,
-      description || "",
-      price,
-      subcategory_id,
-      status,
-      imagePath,
-      userEmail,
-    ],
-    (err, result) => {
-      if (err) {
-        console.error("Error inserting product:", err);
-        return res
-          .status(500)
-          .json({ error: "Database error: " + err.message });
-      }
 
-      // Now update (or insert) the business_profile table.
-      const sqlBusinessProfile = `
-      INSERT INTO business_profile (email, business_id, status)
-      VALUES (?, ?, 1)
-      ON DUPLICATE KEY UPDATE business_id = VALUES(business_id)
+  db.query(categoryQuery, [business_id, subcategory_id], (err, results) => {
+    if (err) {
+      console.error("Error fetching category price range:", err);
+      return res
+        .status(500)
+        .json({ error: "Database error while checking category price range" });
+    }
+
+    if (results.length === 0) {
+      return res.status(400).json({ error: "Invalid category or subcategory" });
+    }
+
+    const { min_price, max_price } = results[0];
+
+    // Validate price within the category range
+    if (
+      parseFloat(price) < parseFloat(min_price) ||
+      parseFloat(price) > parseFloat(max_price)
+    ) {
+      return res.status(400).json({
+        error: `Price should be between ${min_price} and ${max_price} for the selected category.`,
+      });
+    }
+
+    // Insert product if price is valid
+    const imagePath = req.file ? req.file.path : null;
+    const status = 1;
+
+    const sql = `
+      INSERT INTO products (Product_name, Description, Price, Subcategory_id, Status, Product_image, email)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
-      db.query(
-        sqlBusinessProfile,
-        [userEmail, business_id],
-        (err2, result2) => {
-          if (err2) {
-            console.error("Error updating business profile:", err2);
-            return res.status(500).json({
-              error:
-                "Database error when updating business profile: " +
-                err2.message,
+
+    db.query(
+      sql,
+      [
+        name,
+        description || "",
+        price,
+        subcategory_id,
+        status,
+        imagePath,
+        userEmail,
+      ],
+      (err, result) => {
+        if (err) {
+          console.error("Error inserting product:", err);
+          return res
+            .status(500)
+            .json({ error: "Database error: " + err.message });
+        }
+
+        // Update or insert into `business_profile`
+        const sqlBusinessProfile = `
+        INSERT INTO business_profile (email, business_id, status)
+        VALUES (?, ?, 1)
+        ON DUPLICATE KEY UPDATE business_id = VALUES(business_id)
+      `;
+
+        db.query(
+          sqlBusinessProfile,
+          [userEmail, business_id],
+          (err2, result2) => {
+            if (err2) {
+              console.error("Error updating business profile:", err2);
+              return res.status(500).json({
+                error:
+                  "Database error when updating business profile: " +
+                  err2.message,
+              });
+            }
+            res.status(201).json({
+              Product_id: result.insertId,
+              Product_name: name,
+              Description: description || "",
+              Price: price,
+              Subcategory_id: subcategory_id,
+              Status: status,
+              Product_image: imagePath,
+              email: userEmail,
+              message: "Product added successfully!",
             });
           }
-          res.status(201).json({
-            Product_id: result.insertId,
-            Product_name: name,
-            Description: description || "",
-            Price: price,
-            Subcategory_id: subcategory_id,
-            Status: status,
-            Product_image: imagePath,
-            email: userEmail,
-            message: "Product added successfully!",
-          });
-        }
-      );
-    }
-  );
+        );
+      }
+    );
+  });
 });
 
 // Get products - FIXED to properly handle email filtering
@@ -1171,7 +1228,71 @@ app.get("/api/all-products", (req, res) => {
     res.json(results);
   });
 });
+app.get("/api/all-pro", (req, res) => {
+  const sql = `
+      SELECT 
+        p.Product_id, 
+        p.Product_name, 
+        p.Price, 
+        u.email AS seller_email
+      FROM products p
+      JOIN tbl_users u ON p.email = u.email
+    `;
 
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
+
+// app.get("/api/all-pro", (req, res) => {
+//   const sql = `
+//       SELECT
+//         p.Product_id,
+//         p.Product_name,
+//         p.Price,
+//         u.email
+//       FROM products p
+//       JOIN tbl_users u ON p.product_id = u.email
+//     `;
+
+//   db.query(sql, (err, results) => {
+//     if (err) {
+//       console.error("Database error:", err);
+//       return res.status(500).json({ error: "Database error" });
+//     }
+//     res.json(results);
+//   });
+// });
+
+// app.get("/api/all-pro", async (req, res) => {
+//   try {
+//     const connection = await db.getConnection();
+//     const [rows] = await connection.query(`
+//       SELECT
+//         id,
+//         Product_id,
+//         product_name,
+//         product_price,
+//         seller_id,
+//         status
+//       FROM products
+//     `);
+//     connection.release();
+
+//     console.log(`Retrieved ${rows.length} products`);
+//     res.status(200).json(rows);
+//   } catch (error) {
+//     console.error("Error fetching products:", error);
+//     res.status(500).json({
+//       message: "Failed to fetch products",
+//       error: error.message,
+//     });
+//   }
+// });
 app.get("/api/products/count", (req, res) => {
   const sql = "SELECT COUNT(*) AS totalProducts FROM products";
 
@@ -1282,36 +1403,6 @@ app.get("/api/cart/:email", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-// Get cart items for a specific user
-// app.get("/api/cart/:email", async (req, res) => {
-//   const { email } = req.params;
-
-//   try {
-//     // Query to join cart table with products table to get product details
-//     const sql = `
-//       SELECT c.cart_id, c.email, c.product_id, c.added_at,
-//              p.Product_name, p.Price, p.Description, p.Product_image,
-//              p.category_id, p.subcategory_id, p.seller_id, p.business_type,
-//              cat.category_name, subcat.subcategory_name, s.seller_name
-//       FROM cart c
-//       JOIN products p ON c.product_id = p.Product_id
-//       LEFT JOIN categories cat ON p.category_id = cat.category_id
-//       LEFT JOIN subcategories subcat ON p.subcategory_id = subcat.subcategory_id
-//       LEFT JOIN sellers s ON p.seller_id = s.seller_id
-//       WHERE c.email = ?
-//       ORDER BY c.added_at DESC
-//     `;
-
-//     const [rows] = await db.query(sql, [email]);
-//     res.json(rows);
-//   } catch (error) {
-//     console.error("Error fetching cart items:", error);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// });
-
-// // Delete item from cart
 app.delete("/api/cart/:cartId", async (req, res) => {
   const { cartId } = req.params;
 
@@ -1324,6 +1415,69 @@ app.delete("/api/cart/:cartId", async (req, res) => {
     console.error("Error removing item from cart:", error);
     res.status(500).json({ message: "Server error" });
   }
+});
+
+// Get all sellers
+app.get("/api/sellers", (req, res) => {
+  const sql = "SELECT * FROM business_profile";
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
+
+// Update seller status
+app.put("/api/sellers/status/:profileId", (req, res) => {
+  const { profileId } = req.params;
+  const { status } = req.body;
+
+  if (status !== 0 && status !== 1) {
+    return res.status(400).json({ error: "Invalid status value" });
+  }
+
+  const sql = "UPDATE business_profile SET status = ? WHERE profile_id = ?";
+
+  db.query(sql, [status, profileId], (err, result) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Seller not found" });
+    }
+
+    res.json({ message: "Seller status updated successfully" });
+  });
+});
+
+// Update product status
+app.put("/api/products/status/:productId", (req, res) => {
+  const { productId } = req.params;
+  const { status } = req.body;
+
+  if (status !== 0 && status !== 1) {
+    return res.status(400).json({ error: "Invalid status value" });
+  }
+
+  const sql = "UPDATE products SET status = ? WHERE id = ?";
+
+  db.query(sql, [status, productId], (err, result) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    res.json({ message: "Product status updated successfully" });
+  });
 });
 
 app.listen(port, () => {

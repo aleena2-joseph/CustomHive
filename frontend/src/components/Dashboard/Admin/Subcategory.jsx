@@ -13,6 +13,7 @@ const SubCategory = ({ setUser }) => {
   const [subCategoryName, setSubCategoryName] = useState("");
   const [description, setDescription] = useState("");
   const [subCategories, setSubCategories] = useState([]);
+  const [filteredSubCategories, setFilteredSubCategories] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
@@ -67,14 +68,27 @@ const SubCategory = ({ setUser }) => {
   }, []);
 
   // Fetch subcategories
-  const fetchSubCategories = async () => {
+  const fetchSubCategories = async (categoryId = null) => {
     try {
       setIsLoading(true);
-      const response = await axios.get(
-        "http://localhost:5000/api/subcategories"
-      );
+      let url = "http://localhost:5000/api/subcategories";
+
+      // If categoryId is provided, add it as a query parameter
+      if (categoryId) {
+        url += `?category_id=${categoryId}`;
+      }
+
+      const response = await axios.get(url);
+
       if (response.data && Array.isArray(response.data.data)) {
-        setSubCategories(response.data.data);
+        if (categoryId) {
+          // If fetching for a specific category, update filtered subcategories
+          setFilteredSubCategories(response.data.data);
+        } else {
+          // Otherwise update all subcategories
+          setSubCategories(response.data.data);
+          setFilteredSubCategories([]); // Reset filtered subcategories
+        }
       } else {
         console.error("Unexpected API response format:", response.data);
       }
@@ -90,12 +104,26 @@ const SubCategory = ({ setUser }) => {
     const selectedType = e.target.value;
     setSelectedBusinessType(selectedType);
     setSelectedCategory(""); // Reset category selection
+    setFilteredSubCategories([]); // Reset filtered subcategories
 
     // Filter categories based on business type
     const filtered = categories.filter(
       (category) => category.business_id == selectedType
     );
     setFilteredCategories(filtered);
+  };
+
+  // Handle Category Selection
+  const handleCategoryChange = (e) => {
+    const categoryId = e.target.value;
+    setSelectedCategory(categoryId);
+
+    if (categoryId) {
+      // Fetch subcategories for the selected category
+      fetchSubCategories(categoryId);
+    } else {
+      setFilteredSubCategories([]);
+    }
   };
 
   // Handle form submission
@@ -134,9 +162,10 @@ const SubCategory = ({ setUser }) => {
       // Reset form
       setSubCategoryName("");
       setDescription("");
-      setSelectedBusinessType("");
-      setSelectedCategory("");
-      setFilteredCategories([]);
+
+      // Refresh subcategories for the current category
+      fetchSubCategories(selectedCategory);
+      // Also refresh all subcategories
       fetchSubCategories();
     } catch (error) {
       console.error("Error adding subcategory:", error);
@@ -188,6 +217,11 @@ const SubCategory = ({ setUser }) => {
 
       setIsEditing(false);
       setEditingId(null);
+
+      // Refresh the appropriate subcategories list
+      if (selectedCategory) {
+        fetchSubCategories(selectedCategory);
+      }
       fetchSubCategories();
     } catch (error) {
       console.error("Error updating subcategory:", error);
@@ -216,6 +250,10 @@ const SubCategory = ({ setUser }) => {
           successMessage.classList.add("hidden");
         }, 3000);
 
+        // Refresh the appropriate subcategories list
+        if (selectedCategory) {
+          fetchSubCategories(selectedCategory);
+        }
         fetchSubCategories();
       } catch (error) {
         console.error("Error deleting subcategory:", error);
@@ -225,6 +263,11 @@ const SubCategory = ({ setUser }) => {
       }
     }
   };
+
+  // Determine which subcategories to display
+  const displaySubCategories = selectedCategory
+    ? filteredSubCategories
+    : subCategories;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -273,7 +316,7 @@ const SubCategory = ({ setUser }) => {
               </label>
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={handleCategoryChange}
                 className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 focus:outline-none shadow-sm"
                 disabled={!selectedBusinessType} // Disable if business type not selected
               >
@@ -345,13 +388,15 @@ const SubCategory = ({ setUser }) => {
         {/* Subcategory List */}
         <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-8 border border-gray-200">
           <h2 className="text-xl font-bold text-gray-800 mb-6 pb-2 border-b">
-            Subcategory List
+            {selectedCategory
+              ? `Subcategories for Selected Category`
+              : "All Subcategories"}
           </h2>
           {isLoading ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
             </div>
-          ) : subCategories.length > 0 ? (
+          ) : displaySubCategories.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
@@ -362,16 +407,14 @@ const SubCategory = ({ setUser }) => {
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
                       Category
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b">
-                      Description
-                    </th>
+
                     <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700 border-b">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {subCategories.map((subCategory) => (
+                  {displaySubCategories.map((subCategory) => (
                     <tr
                       key={subCategory.subcategory_id}
                       className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150"
@@ -390,7 +433,7 @@ const SubCategory = ({ setUser }) => {
                         )}
                       </td>
                       <td className="px-4 py-3">{subCategory.category_name}</td>
-                      <td className="px-4 py-3">
+                      {/* <td className="px-4 py-3">
                         {isEditing &&
                         editingId === subCategory.subcategory_id ? (
                           <input
@@ -402,7 +445,7 @@ const SubCategory = ({ setUser }) => {
                         ) : (
                           subCategory.description || "N/A"
                         )}
-                      </td>
+                      </td> */}
                       <td className="px-4 py-3 text-center">
                         {isEditing &&
                         editingId === subCategory.subcategory_id ? (
@@ -452,7 +495,9 @@ const SubCategory = ({ setUser }) => {
             </div>
           ) : (
             <p className="text-gray-500 text-center py-8">
-              No subcategories found.
+              {selectedCategory
+                ? "No subcategories found for this category."
+                : "No subcategories found."}
             </p>
           )}
         </div>
