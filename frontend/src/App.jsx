@@ -15,7 +15,7 @@ import ResetPassword from "./components/LoginSignup/ResetPassword";
 import Category from "./components/Dashboard/Admin/Category";
 import SubCategory from "./components/Dashboard/Admin/Subcategory";
 import ProfilePage from "./components/Dashboard/ProfilePage";
-
+import ViewDetails from "./components/Dashboard/ViewDetails";
 const App = () => {
   const [user, setUser] = useState(() => {
     // Ensure user is retrieved as an object
@@ -83,6 +83,15 @@ const App = () => {
         <Route path="/profile" element={<ProfilePage setUser={setUser} />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/cart" element={<Cart />} />
+
+        <Route
+          path="/product/:id"
+          element={<ViewDetails setUser={setUser} />}
+        />
+        <Route
+          path="/view_details"
+          element={<ViewDetails setUser={setUser} />}
+        />
       </Routes>
     </BrowserRouter>
   );

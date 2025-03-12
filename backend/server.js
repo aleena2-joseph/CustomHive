@@ -1203,10 +1203,6 @@ app.get("/api/price-range", (req, res) => {
 
 // Get products - FIXED to properly handle email filtering
 app.get("/api/products", (req, res) => {
-  // Get email either from query params or from session
-  // const email =
-  //   req.query.email ||
-  //   (req.session && req.session.user ? req.session.user.email : null);
   const email =
     req.query.email ||
     (req.session && req.session.user && req.session.user.email) ||
@@ -1235,6 +1231,40 @@ app.get("/api/products", (req, res) => {
       return res.status(500).json({ error: "Database error" });
     }
     res.json(results);
+  });
+});
+// Get a specific product by ID
+app.get("/api/prod/:id", (req, res) => {
+  const productId = req.params.id;
+  console.log("Received request for product ID:", productId);
+
+  const sql = `
+    SELECT p.*, 
+           u.name AS seller_name, 
+           MAX(bt.type_name) AS business_type, 
+           c.category_name, 
+           s.subcategory_name
+    FROM products p
+    LEFT JOIN tbl_users u ON p.email = u.email
+    LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
+    LEFT JOIN categories c ON s.category_id = c.category_id
+    LEFT JOIN business_profile bp ON p.email = bp.email
+    LEFT JOIN business_types bt ON bp.business_id = bt.business_id
+    WHERE p.Product_id = ?
+    GROUP BY p.Product_id, u.name, c.category_name, s.subcategory_name
+  `;
+
+  db.query(sql, [productId], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    res.json(results[0]); // Return single product details
   });
 });
 
@@ -1304,51 +1334,6 @@ app.get("/api/all-pro", (req, res) => {
   });
 });
 
-// app.get("/api/all-pro", (req, res) => {
-//   const sql = `
-//       SELECT
-//         p.Product_id,
-//         p.Product_name,
-//         p.Price,
-//         u.email
-//       FROM products p
-//       JOIN tbl_users u ON p.product_id = u.email
-//     `;
-
-//   db.query(sql, (err, results) => {
-//     if (err) {
-//       console.error("Database error:", err);
-//       return res.status(500).json({ error: "Database error" });
-//     }
-//     res.json(results);
-//   });
-// });
-
-// app.get("/api/all-pro", async (req, res) => {
-//   try {
-//     const connection = await db.getConnection();
-//     const [rows] = await connection.query(`
-//       SELECT
-//         id,
-//         Product_id,
-//         product_name,
-//         product_price,
-//         seller_id,
-//         status
-//       FROM products
-//     `);
-//     connection.release();
-
-//     console.log(`Retrieved ${rows.length} products`);
-//     res.status(200).json(rows);
-//   } catch (error) {
-//     console.error("Error fetching products:", error);
-//     res.status(500).json({
-//       message: "Failed to fetch products",
-//       error: error.message,
-//     });
-//   }
-// });
 app.get("/api/products/count", (req, res) => {
   const sql = "SELECT COUNT(*) AS totalProducts FROM products";
 

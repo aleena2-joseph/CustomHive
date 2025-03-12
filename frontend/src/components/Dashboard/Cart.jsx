@@ -1,15 +1,22 @@
 import { useState, useEffect } from "react";
-import { FaTrash, FaArrowLeft, FaShoppingBag } from "react-icons/fa";
+import {
+  FaTrash,
+  FaArrowLeft,
+  FaShoppingBag,
+  FaUserCircle,
+} from "react-icons/fa";
 import axios from "axios";
+import PropTypes from "prop-types";
+
 import { Link, useNavigate } from "react-router-dom";
 import logo from "../Products/Navbar/logo.png";
 
-const Cart = () => {
+const Cart = ({ setUser: setGlobalUser }) => {
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [user, setUser] = useState(() => {
+  const [user, setLocalUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
@@ -20,10 +27,37 @@ const Cart = () => {
     0
   );
 
+  // First useEffect to handle session management
+  useEffect(() => {
+    // If no user is found in local state, try to get from session
+    if (!user) {
+      axios
+        .get("http://localhost:5000/api/session", { withCredentials: true })
+        .then((response) => {
+          if (response.data.user) {
+            const userData = response.data.user;
+            setLocalUser(userData);
+            localStorage.setItem("user", JSON.stringify(userData));
+            // Update global user state if the setter function exists
+            if (typeof setGlobalUser === "function") {
+              setGlobalUser(userData);
+            }
+          } else {
+            // No user in session, redirect to login
+            navigate("/login");
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching session:", error);
+          navigate("/login");
+        });
+    }
+  }, [user, setGlobalUser, navigate]);
+
+  // Second useEffect to fetch cart items once we have a user
   useEffect(() => {
     if (!user) {
-      navigate("/login");
-      return;
+      return; // Don't try to fetch cart if no user
     }
 
     const fetchCartItems = async () => {
@@ -52,7 +86,7 @@ const Cart = () => {
     };
 
     fetchCartItems();
-  }, [user, navigate]);
+  }, [user]);
 
   const handleRemoveFromCart = async (cartItemId) => {
     try {
@@ -66,7 +100,9 @@ const Cart = () => {
   };
 
   const handleQuantityChange = (cartItemId, newQuantity) => {
+    // Ensure quantity stays within range of 1-20
     if (newQuantity < 1) return;
+    if (newQuantity > 20) return;
 
     setCartItems(
       cartItems.map((item) =>
@@ -74,7 +110,6 @@ const Cart = () => {
       )
     );
   };
-
   const handleCheckout = () => {
     // Implement checkout process here
     alert("Checkout feature will be implemented soon!");
@@ -89,7 +124,10 @@ const Cart = () => {
       console.error("Server logout error:", error);
     }
     localStorage.removeItem("user");
-    setUser(null);
+    setLocalUser(null);
+    if (typeof setGlobalUser === "function") {
+      setGlobalUser(null);
+    }
     navigate("/login");
   };
 
@@ -107,7 +145,11 @@ const Cart = () => {
               <span className="text-primary">CustomHive</span>
             </Link>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 ml-auto">
+            <FaUserCircle className="text-3xl text-primary" />
+            <span className="hidden md:inline text-gray-700">
+              {user?.name || "Guest"}
+            </span>
             <button
               onClick={handleLogout}
               className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
@@ -376,5 +418,7 @@ const Cart = () => {
     </div>
   );
 };
-
+Cart.propTypes = {
+  setUser: PropTypes.func,
+};
 export default Cart;
