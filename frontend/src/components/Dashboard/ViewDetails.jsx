@@ -10,6 +10,7 @@ import {
   FaStore,
   FaUser,
   FaUserCircle,
+  FaComment,
 } from "react-icons/fa";
 
 const ViewDetails = ({ setUser: setGlobalUser }) => {
@@ -232,6 +233,20 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
       {/* Welcome Message */}
 
       <div className="container mx-auto px-4 py-10">
+        <div className="flex items-center justify-between mb-6">
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+          >
+            <FaArrowLeft />
+            <span>Back to Dashboard</span>
+          </Link>
+          <button className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2">
+            <FaComment />
+            <span>Chat with Seller</span>
+          </button>
+        </div>
+
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="flex flex-col md:flex-row">
             {/* Product Image */}
@@ -244,7 +259,6 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
                 />
               </div>
             </div>
-
             {/* Product Details */}
             <div className="md:w-1/2 p-6 md:p-8">
               <div className="flex items-center space-x-2 mb-4">
@@ -361,22 +375,10 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
                 <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
                   <li>Free shipping on orders over ₹999</li>
                   <li>Standard delivery: 3-5 business days</li>
-                  <li>Easy 30-day return policy</li>
                 </ul>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Back to Products Button */}
-        <div className="text-center mt-8">
-          <Link
-            to="/userDashboard"
-            className="inline-flex items-center gap-2 bg-gray-100 text-gray-700 px-6 py-3 rounded-md hover:bg-gray-200 transition-all"
-          >
-            <FaArrowLeft />
-            Back to Products
-          </Link>
         </div>
       </div>
 

@@ -307,13 +307,7 @@ app.post("/add_user", async (req, res) => {
     });
   }
 });
-// app.get("/api/session", (req, res) => {
-//   if (req.session && req.session.user) {
-//     res.json({ user: req.session.user });
-//   } else {
-//     res.json({ user: null });
-//   }
-// });
+
 app.get("/api/session", (req, res) => {
   if (req.isAuthenticated() && req.user) {
     res.json({

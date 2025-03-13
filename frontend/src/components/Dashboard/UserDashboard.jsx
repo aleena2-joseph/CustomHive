@@ -27,6 +27,8 @@ const UserDashboard = ({ user, setUser }) => {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedSubcategory, setSelectedSubcategory] = useState("");
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
 
   const handleAddToCart = async (product) => {
     try {
@@ -83,7 +85,7 @@ const UserDashboard = ({ user, setUser }) => {
     fetchProducts();
   }, []);
 
-  // Filter products based on search term, category, and subcategory
+  // Filter products based on search term, category, subcategory, and price
   useEffect(() => {
     let results = products;
 
@@ -115,8 +117,28 @@ const UserDashboard = ({ user, setUser }) => {
       );
     }
 
+    // Filter by price range
+    if (minPrice !== "") {
+      results = results.filter(
+        (product) => parseFloat(product.Price) >= parseFloat(minPrice)
+      );
+    }
+
+    if (maxPrice !== "") {
+      results = results.filter(
+        (product) => parseFloat(product.Price) <= parseFloat(maxPrice)
+      );
+    }
+
     setFilteredProducts(results);
-  }, [searchTerm, selectedCategory, selectedSubcategory, products]);
+  }, [
+    searchTerm,
+    selectedCategory,
+    selectedSubcategory,
+    minPrice,
+    maxPrice,
+    products,
+  ]);
 
   const handleLogout = async () => {
     try {
@@ -135,6 +157,8 @@ const UserDashboard = ({ user, setUser }) => {
     setSearchTerm("");
     setSelectedCategory("");
     setSelectedSubcategory("");
+    setMinPrice("");
+    setMaxPrice("");
     setFilteredProducts(products);
   };
 
@@ -257,6 +281,7 @@ const UserDashboard = ({ user, setUser }) => {
               </div>
 
               {/* Filter Section */}
+
               <div className="relative">
                 <button
                   onClick={() => setFilterMenuOpen(!filterMenuOpen)}
@@ -304,6 +329,29 @@ const UserDashboard = ({ user, setUser }) => {
                       </select>
                     </div>
 
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Price Range
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={minPrice}
+                          onChange={(e) => setMinPrice(e.target.value)}
+                          placeholder="Min"
+                          className="w-1/2 border rounded-md p-2 focus:ring-primary focus:border-primary"
+                        />
+                        <span>-</span>
+                        <input
+                          type="number"
+                          value={maxPrice}
+                          onChange={(e) => setMaxPrice(e.target.value)}
+                          placeholder="Max"
+                          className="w-1/2 border rounded-md p-2 focus:ring-primary focus:border-primary"
+                        />
+                      </div>
+                    </div>
+
                     <div className="flex justify-between">
                       <button
                         onClick={clearFilters}
@@ -324,7 +372,10 @@ const UserDashboard = ({ user, setUser }) => {
             </div>
 
             {/* Active Filters Display */}
-            {(selectedCategory || selectedSubcategory) && (
+            {(selectedCategory ||
+              selectedSubcategory ||
+              minPrice ||
+              maxPrice) && (
               <div className="mt-4 flex flex-wrap gap-2">
                 {selectedCategory && (
                   <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm flex items-center">
@@ -342,6 +393,21 @@ const UserDashboard = ({ user, setUser }) => {
                     Subcategory: {selectedSubcategory}
                     <button
                       onClick={() => setSelectedSubcategory("")}
+                      className="ml-2 text-gray-500 hover:text-gray-700"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {(minPrice || maxPrice) && (
+                  <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm flex items-center">
+                    Price: {minPrice ? `₹${minPrice}` : "₹0"} -{" "}
+                    {maxPrice ? `₹${maxPrice}` : "Any"}
+                    <button
+                      onClick={() => {
+                        setMinPrice("");
+                        setMaxPrice("");
+                      }}
                       className="ml-2 text-gray-500 hover:text-gray-700"
                     >
                       ×
@@ -372,7 +438,11 @@ const UserDashboard = ({ user, setUser }) => {
               <p className="text-gray-600 text-lg">
                 No products found matching your criteria
               </p>
-              {(searchTerm || selectedCategory || selectedSubcategory) && (
+              {(searchTerm ||
+                selectedCategory ||
+                selectedSubcategory ||
+                minPrice ||
+                maxPrice) && (
                 <button
                   onClick={clearFilters}
                   className="mt-4 bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/80"
