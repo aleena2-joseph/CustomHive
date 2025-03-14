@@ -65,8 +65,14 @@ const App = () => {
         />
 
         <Route path="/admin" element={<Navigate to="/admin/overview" />} />
-        <Route path="/admin/overview" element={<Overview />} />
-        <Route path="/admin/userlist" element={<UserList />} />
+        <Route
+          path="/admin/overview"
+          element={<Overview setUser={setUser} />}
+        />
+        <Route
+          path="/admin/userlist"
+          element={<UserList setUser={setUser} />}
+        />
         <Route
           path="/admin/business_types"
           element={<Business_types setUser={setUser} />}

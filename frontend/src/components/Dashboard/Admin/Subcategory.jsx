@@ -2,10 +2,13 @@ import { useState, useEffect } from "react";
 import Sidebar from "../../Hero/Sidebar";
 import PropTypes from "prop-types";
 import axios from "axios";
-import { Trash2, Save, X } from "lucide-react";
+import { Save, X } from "lucide-react";
 import { FiEdit } from "react-icons/fi";
+import logo from "../../Products/Navbar/logo.png";
+import { FaUserCircle } from "react-icons/fa";
+import { Link } from "react-router-dom";
 
-const SubCategory = ({ setUser }) => {
+const SubCategory = () => {
   const [businessTypes, setBusinessTypes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [filteredCategories, setFilteredCategories] = useState([]);
@@ -20,6 +23,7 @@ const SubCategory = ({ setUser }) => {
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState(null);
 
   // Fetch business types
   useEffect(() => {
@@ -232,38 +236,12 @@ const SubCategory = ({ setUser }) => {
     }
   };
 
-  // Delete subcategory
-  const handleDelete = async (id) => {
-    if (confirm("Are you sure you want to delete this subcategory?")) {
-      try {
-        setIsLoading(true);
-        await axios.delete(
-          `http://localhost:5000/api/delete-subcategory/${id}`
-        );
-
-        // Show success message
-        const successMessage = document.getElementById("successMessage");
-        successMessage.textContent = "Subcategory deleted successfully!";
-        successMessage.classList.remove("hidden");
-
-        // Hide success message after 3 seconds
-        setTimeout(() => {
-          successMessage.classList.add("hidden");
-        }, 3000);
-
-        // Refresh the appropriate subcategories list
-        if (selectedCategory) {
-          fetchSubCategories(selectedCategory);
-        }
-        fetchSubCategories();
-      } catch (error) {
-        console.error("Error deleting subcategory:", error);
-        alert("Failed to delete subcategory. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
+  useEffect(() => {
+    axios
+      .get("http://localhost:5000/api/session", { withCredentials: true })
+      .then((res) => setUser(res.data.user || null))
+      .catch((err) => console.error("Error fetching session:", err));
+  }, []);
 
   // Determine which subcategories to display
   const displaySubCategories = selectedCategory
@@ -271,9 +249,31 @@ const SubCategory = ({ setUser }) => {
     : subCategories;
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar setUser={setUser} />
-      <div className="flex-1 p-6 ml-[250px]">
+    <div className="flex flex-col min-h-screen">
+      {/* Navbar at the top */}
+      <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
+        <div className="container mx-auto px-4 flex justify-between items-center">
+          <div>
+            <Link
+              to="/dashboard"
+              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
+            >
+              <img src={logo} alt="logo" className="w-10" />
+              <span className="text-primary">CustomHive</span>
+            </Link>
+          </div>
+          <div className="flex items-center gap-4 ml-auto">
+            <FaUserCircle className="text-3xl text-primary" />
+            <span className="hidden md:inline text-gray-700">
+              {user?.name || "Guest"}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <Sidebar setUser={setUser} />
+      </div>
+      <div className="flex-1 p-6 ">
         {/* Success message */}
         <div
           id="successMessage"
@@ -465,16 +465,6 @@ const SubCategory = ({ setUser }) => {
                             >
                               <FiEdit className="mr-1" />
                               Edit
-                            </button>
-
-                            <button
-                              onClick={() =>
-                                handleDelete(subCategory.subcategory_id)
-                              }
-                              className="p-1 text-red-600 hover:text-red-800"
-                              title="Delete"
-                            >
-                              <Trash2 size={18} />
                             </button>
                           </div>
                         )}

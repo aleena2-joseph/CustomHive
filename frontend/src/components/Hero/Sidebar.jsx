@@ -32,7 +32,7 @@ const Sidebar = ({ setUser }) => {
         </li>
         <li>
           <Link to="/admin/userlist" className="block p-2 hover:bg-primary">
-            User List
+            User/Seller List
           </Link>
         </li>
         <li>
