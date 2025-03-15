@@ -10,8 +10,8 @@ import {
   FaStore,
   FaUser,
   FaUserCircle,
-  FaComment,
 } from "react-icons/fa";
+import { BsStars } from "react-icons/bs";
 
 const ViewDetails = ({ setUser: setGlobalUser }) => {
   const { id } = useParams();
@@ -100,7 +100,9 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
     }
     navigate("/login");
   };
-
+  const handleBuyNow = () => {
+    navigate("/orders", { state: { product } });
+  };
   const handleAddToCart = async () => {
     try {
       // Get user from localStorage
@@ -242,8 +244,8 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
             <span>Back to Dashboard</span>
           </Link>
           <button className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2">
-            <FaComment />
-            <span>Chat with Seller</span>
+            <BsStars />
+            <span>Customize Your Product</span>
           </button>
         </div>
 
@@ -362,7 +364,10 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
                   <FaShoppingCart className="mr-2" />
                   Add to Cart
                 </button>
-                <button className="flex-1 border-2 border-primary text-primary py-3 rounded-md hover:bg-primary/10 transition-colors">
+                <button
+                  onClick={handleBuyNow}
+                  className="flex-1 border-2 border-primary text-primary py-3 rounded-md hover:bg-primary/10 transition-colors"
+                >
                   Buy Now
                 </button>
               </div>

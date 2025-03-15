@@ -16,6 +16,7 @@ import Category from "./components/Dashboard/Admin/Category";
 import SubCategory from "./components/Dashboard/Admin/Subcategory";
 import ProfilePage from "./components/Dashboard/ProfilePage";
 import ViewDetails from "./components/Dashboard/ViewDetails";
+import Orders from "./components/Dashboard/Orders";
 const App = () => {
   const [user, setUser] = useState(() => {
     // Ensure user is retrieved as an object
@@ -89,7 +90,7 @@ const App = () => {
         <Route path="/profile" element={<ProfilePage setUser={setUser} />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/cart" element={<Cart />} />
-
+        <Route path="/orders" element={<Orders />} />
         <Route
           path="/product/:id"
           element={<ViewDetails setUser={setUser} />}

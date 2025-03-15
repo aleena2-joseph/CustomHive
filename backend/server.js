@@ -1514,7 +1514,18 @@ app.put("/api/products/status/:productId", (req, res) => {
     res.json({ message: "Product status updated successfully" });
   });
 });
+app.post("/api/orders", upload.single("image"), (req, res) => {
+  const { email, product_id, quantity, total_amount, text, customization_details } = req.body;
+  const image = req.file ? req.file.path : null;
 
+  const sql = "INSERT INTO orders (email, product_id, quantity, total_amount, text, image, customization_details) VALUES (?, ?, ?, ?, ?, ?, ?)";
+  const values = [email, product_id, quantity, total_amount, text, image, customization_details];
+
+  db.query(sql, values, (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(201).json({ message: "Order placed successfully!", order_id: result.insertId });
+  });
+});
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
