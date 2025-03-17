@@ -1228,6 +1228,27 @@ app.get("/api/products", (req, res) => {
   });
 });
 // Get a specific product by ID
+
+// Update product status
+app.put("/api/products/:id", (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  const sql = "UPDATE products SET Status = ? WHERE Product_id = ?";
+  db.query(sql, [status, id], (err, result) => {
+    if (err) {
+      console.error("Error updating product status:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    res.json({ message: "Product status updated successfully" });
+  });
+});
+// Get all products from all users
 app.get("/api/prod/:id", (req, res) => {
   const productId = req.params.id;
   console.log("Received request for product ID:", productId);
@@ -1262,30 +1283,110 @@ app.get("/api/prod/:id", (req, res) => {
   });
 });
 
-// Update product status
-app.put("/api/products/:id", (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
+//To get product details to order page
+// Updated API endpoint to properly include product image
+app.get("/api/ord_prod/:id", (req, res) => {
+  const productId = req.params.id;
+  console.log("Received request for product ID:", productId);
 
-  const sql = "UPDATE products SET Status = ? WHERE Product_id = ?";
-  db.query(sql, [status, id], (err, result) => {
+  if (!productId) {
+    return res.status(400).json({ error: "Product ID is required" });
+  }
+
+  // First, get the basic product information
+  const productSql = `
+    SELECT 
+      p.*,
+      u.name AS seller_name,
+      c.category_name,
+      s.subcategory_name
+    FROM products p
+    LEFT JOIN tbl_users u ON p.email = u.email
+    LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
+    LEFT JOIN categories c ON s.category_id = c.category_id
+    WHERE p.Product_id = ?
+  `;
+
+  db.query(productSql, [productId], (err, productResults) => {
     if (err) {
-      console.error("Error updating product status:", err);
-      return res.status(500).json({ error: "Database error" });
+      console.error("Database error:", err);
+      return res
+        .status(500)
+        .json({ error: "Database error", details: err.message });
     }
 
-    if (result.affectedRows === 0) {
+    if (productResults.length === 0) {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    res.json({ message: "Product status updated successfully" });
+    const product = productResults[0];
+
+    // Get business type in a separate query
+    const businessSql = `
+      SELECT bt.type_name AS business_type
+      FROM business_profile bp
+      JOIN business_types bt ON bp.business_id = bt.business_id
+      WHERE bp.email = ?
+      LIMIT 1
+    `;
+
+    db.query(businessSql, [product.email], (bizErr, bizResults) => {
+      if (!bizErr && bizResults.length > 0) {
+        product.business_type = bizResults[0].business_type;
+      }
+
+      // Get product image in a separate query
+      const imageSql = `
+        SELECT image_url 
+        FROM product_images
+        WHERE product_id = ? 
+        ORDER BY is_primary DESC
+        LIMIT 1
+      `;
+
+      db.query(imageSql, [productId], (imgErr, imgResults) => {
+        if (!imgErr && imgResults.length > 0) {
+          product.product_image = imgResults[0].image_url;
+        } else {
+          // Use the default Product_image field if available
+          if (product.Product_image) {
+            product.product_image = product.Product_image;
+          }
+        }
+
+        console.log("Sending product response:", product);
+        res.json(product);
+      });
+    });
   });
 });
-// Get all products from all users
+// app.get("/api/all-products", (req, res) => {
+//   const sql = `
+//     SELECT p.*, u.name AS seller_name,
+//            MAX(bt.type_name) AS business_type,
+//            c.category_name,
+//            s.subcategory_name
+//     FROM products p
+//     LEFT JOIN tbl_users u ON p.email = u.email
+//     LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
+//     LEFT JOIN categories c ON s.category_id = c.category_id
+//     LEFT JOIN business_profile bp ON p.email = bp.email
+//     LEFT JOIN business_types bt ON bp.business_id = bt.business_id
+//     GROUP BY p.Product_id, u.name, c.category_name, s.subcategory_name
+//     ORDER BY p.Product_id DESC
+//   `;
 
+//   db.query(sql, (err, results) => {
+//     if (err) {
+//       console.error("Database error:", err);
+//       return res.status(500).json({ error: "Database error" });
+//     }
+//     res.json(results);
+//   });
+// });
 app.get("/api/all-products", (req, res) => {
   const sql = `
-    SELECT p.*, u.name AS seller_name, 
+    SELECT p.*, p.status, u.name AS seller_name, 
            MAX(bt.type_name) AS business_type, 
            c.category_name, 
            s.subcategory_name
@@ -1295,8 +1396,7 @@ app.get("/api/all-products", (req, res) => {
     LEFT JOIN categories c ON s.category_id = c.category_id
     LEFT JOIN business_profile bp ON p.email = bp.email
     LEFT JOIN business_types bt ON bp.business_id = bt.business_id
-      WHERE p.status = 1
-    GROUP BY p.Product_id, u.name, c.category_name, s.subcategory_name
+    GROUP BY p.Product_id, p.status, u.name, c.category_name, s.subcategory_name
     ORDER BY p.Product_id DESC
   `;
 
@@ -1308,6 +1408,7 @@ app.get("/api/all-products", (req, res) => {
     res.json(results);
   });
 });
+
 app.get("/api/all-pro", (req, res) => {
   const sql = `
       SELECT 
@@ -1515,15 +1616,34 @@ app.put("/api/products/status/:productId", (req, res) => {
   });
 });
 app.post("/api/orders", upload.single("image"), (req, res) => {
-  const { email, product_id, quantity, total_amount, text, customization_details } = req.body;
+  const {
+    email,
+    product_id,
+    quantity,
+    total_amount,
+    text,
+    customization_details,
+  } = req.body;
   const image = req.file ? req.file.path : null;
 
-  const sql = "INSERT INTO orders (email, product_id, quantity, total_amount, text, image, customization_details) VALUES (?, ?, ?, ?, ?, ?, ?)";
-  const values = [email, product_id, quantity, total_amount, text, image, customization_details];
+  const sql =
+    "INSERT INTO orders (email, product_id, quantity, total_amount, text, image, customization_details) VALUES (?, ?, ?, ?, ?, ?, ?)";
+  const values = [
+    email,
+    product_id,
+    quantity,
+    total_amount,
+    text,
+    image,
+    customization_details,
+  ];
 
   db.query(sql, values, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.status(201).json({ message: "Order placed successfully!", order_id: result.insertId });
+    res.status(201).json({
+      message: "Order placed successfully!",
+      order_id: result.insertId,
+    });
   });
 });
 app.listen(port, () => {

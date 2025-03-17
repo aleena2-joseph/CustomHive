@@ -8,6 +8,7 @@ import {
   FaTag,
   FaSearch,
   FaFilter,
+  FaCrown,
 } from "react-icons/fa";
 import logo from "../Products/Navbar/logo.png";
 import axios from "axios";
@@ -35,6 +36,12 @@ const UserDashboard = ({ user, setUser }) => {
       const userEmail = user?.email;
       if (!userEmail) {
         alert("Please log in to add items to your cart.");
+        return;
+      }
+
+      // Check if the product belongs to the user
+      if (product.email === userEmail) {
+        alert("You cannot purchase your own product.");
         return;
       }
 
@@ -162,6 +169,11 @@ const UserDashboard = ({ user, setUser }) => {
     setFilteredProducts(products);
   };
 
+  // Check if the current user is the owner of the product
+  const isProductOwner = (product) => {
+    return user?.email === product.email;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
@@ -281,7 +293,6 @@ const UserDashboard = ({ user, setUser }) => {
               </div>
 
               {/* Filter Section */}
-
               <div className="relative">
                 <button
                   onClick={() => setFilterMenuOpen(!filterMenuOpen)}
@@ -476,6 +487,13 @@ const UserDashboard = ({ user, setUser }) => {
                           {product.category_name}
                         </span>
                       )}
+                      {/* Add Crown icon for products owned by the user */}
+                      {isProductOwner(product) && (
+                        <span className="bg-amber-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                          <FaCrown size={12} />
+                          Your Product
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="p-4">
@@ -512,19 +530,52 @@ const UserDashboard = ({ user, setUser }) => {
                         Seller: {product.seller_name}
                       </p>
                     )}
+                    {/* Status Badge */}
+                    <p
+                      className={`text-[10px] font-semibold py-1 px-2 rounded-full text-center mb-2
+                        ${
+                          product.status === 0
+                            ? "bg-red-100 text-red-600 border border-red-400 w-fit"
+                            : "hidden"
+                        }
+                      `}
+                    >
+                      Out of Stock
+                    </p>
 
                     <div className="flex items-center justify-between mt-4">
-                      <Link to={`/product/${product.Product_id}`}>
+                      <Link
+                        to={`/product/${product.Product_id}`}
+                        state={{
+                          product: {
+                            ...product,
+                            product_image:
+                              product.product_image || product.Product_image,
+                          },
+                        }}
+                      >
                         <button className="bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors text-sm">
                           View Details
                         </button>
                       </Link>
-                      <button
-                        onClick={() => handleAddToCart(product)}
-                        className="bg-primary text-white p-3 rounded-full hover:bg-primary/80 transition-colors transform hover:scale-105"
-                      >
-                        <FaShoppingCart />
-                      </button>
+
+                      {/* Conditional rendering for Add to Cart button */}
+                      {isProductOwner(product) ? (
+                        <button
+                          disabled
+                          className="bg-gray-300 text-gray-500 p-3 rounded-full cursor-not-allowed"
+                          title="You cannot purchase your own product"
+                        >
+                          <FaShoppingCart />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleAddToCart(product)}
+                          className="bg-primary text-white p-3 rounded-full hover:bg-primary/80 transition-colors transform hover:scale-105"
+                        >
+                          <FaShoppingCart />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -532,63 +583,63 @@ const UserDashboard = ({ user, setUser }) => {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white py-8 mt-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <h3 className="text-xl font-bold mb-4">CustomHive</h3>
-              <p className="text-gray-400">
-                Your one-stop shop for custom products and merchandise.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold mb-4">Quick Links</h3>
-              <ul className="space-y-2">
-                <li>
+        {/* Footer */}
+        <footer className="bg-gray-800 text-white py-8 mt-12">
+          <div className="container mx-auto px-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div>
+                <h3 className="text-xl font-bold mb-4">CustomHive</h3>
+                <p className="text-gray-400">
+                  Your one-stop shop for custom products and merchandise.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-4">Quick Links</h3>
+                <ul className="space-y-2">
+                  <li>
+                    <a href="#" className="text-gray-400 hover:text-white">
+                      Home
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-gray-400 hover:text-white">
+                      Products
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-gray-400 hover:text-white">
+                      About Us
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-gray-400 hover:text-white">
+                      Contact
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-4">Connect With Us</h3>
+                <div className="flex space-x-4">
                   <a href="#" className="text-gray-400 hover:text-white">
-                    Home
+                    Facebook
                   </a>
-                </li>
-                <li>
                   <a href="#" className="text-gray-400 hover:text-white">
-                    Products
+                    Twitter
                   </a>
-                </li>
-                <li>
                   <a href="#" className="text-gray-400 hover:text-white">
-                    About Us
+                    Instagram
                   </a>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-400 hover:text-white">
-                    Contact
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold mb-4">Connect With Us</h3>
-              <div className="flex space-x-4">
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Facebook
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Twitter
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Instagram
-                </a>
+                </div>
               </div>
             </div>
+            <div className="border-t border-gray-700 mt-8 pt-6 text-center text-gray-400">
+              <p>© 2025 CustomHive. All rights reserved.</p>
+            </div>
           </div>
-          <div className="border-t border-gray-700 mt-8 pt-6 text-center text-gray-400">
-            <p>© 2025 CustomHive. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 };
