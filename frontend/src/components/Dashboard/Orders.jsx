@@ -17,7 +17,6 @@ const Orders = () => {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isOwnProduct, setIsOwnProduct] = useState(false);
 
   const [formData, setFormData] = useState({
     text: "",
@@ -79,17 +78,6 @@ const Orders = () => {
           initialProduct.product_image || initialProduct.Product_image,
       };
       setProduct(productWithImage);
-
-      // Check if user is the seller of this product
-      if (
-        user &&
-        (user.email === productWithImage.seller_email ||
-          user.id === productWithImage.seller_id ||
-          user.seller_id === productWithImage.seller_id)
-      ) {
-        setIsOwnProduct(true);
-      }
-
       setLoading(false);
     } else {
       // If not complete, fetch from API
@@ -102,16 +90,6 @@ const Orders = () => {
             }`
           );
           setProduct(response.data);
-
-          // Check if user is the seller of this product
-          if (
-            user &&
-            (user.email === response.data.seller_email ||
-              user.id === response.data.seller_id ||
-              user.seller_id === response.data.seller_id)
-          ) {
-            setIsOwnProduct(true);
-          }
         } catch (err) {
           console.error("Error fetching product details:", err);
           setError("Failed to load product details. Please try again.");
@@ -121,7 +99,7 @@ const Orders = () => {
       };
       fetchProductDetails();
     }
-  }, [initialProduct, navigate, user]);
+  }, [initialProduct, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -143,11 +121,6 @@ const Orders = () => {
 
     if (!product) {
       alert("Product information not available. Please try again.");
-      return;
-    }
-
-    if (isOwnProduct) {
-      alert("You cannot purchase your own product.");
       return;
     }
 
@@ -315,137 +288,110 @@ const Orders = () => {
               Place Your Order
             </h2>
 
-            {isOwnProduct ? (
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-md text-center">
-                <p className="text-amber-700 font-medium text-lg mb-2">
-                  You cannot purchase your own product
-                </p>
-                <p className="text-gray-600">
-                  As the seller of this product, you are not able to place an
-                  order for it.
-                </p>
-                <button
-                  onClick={() => navigate(-1)}
-                  className="mt-4 bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90"
-                >
-                  Go Back
-                </button>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium">
+                  Quantity:
+                </label>
+                <input
+                  type="number"
+                  name="quantity"
+                  min="1"
+                  max="20"
+                  value={formData.quantity}
+                  onChange={handleChange}
+                  className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label className="block text-gray-700 mb-2 font-medium">
-                    Quantity:
-                  </label>
-                  <input
-                    type="number"
-                    name="quantity"
-                    min="1"
-                    max="20"
-                    value={formData.quantity}
-                    onChange={handleChange}
-                    className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
 
-                <div>
-                  <label className="block text-gray-700 mb-2 font-medium">
-                    Text to Print/Engrave:
-                  </label>
-                  <input
-                    type="text"
-                    name="text"
-                    value={formData.text}
-                    onChange={handleChange}
-                    placeholder="Text you want on your custom product"
-                    className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                  {formData.text.length > 0 && (
-                    <div className="mt-2 text-sm">
-                      <p className="flex justify-between">
-                        <span>Characters: {formData.text.length}</span>
-                        <span className="text-primary font-medium">
-                          +₹{textSurcharge}
-                        </span>
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Additional ₹10 charge for up to 50 characters, ₹20 for
-                        up to 100 characters, etc.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 mb-2 font-medium">
-                    Upload Image (Optional):
-                  </label>
-                  <input
-                    type="file"
-                    name="image"
-                    onChange={handleImageChange}
-                    className="border p-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    accept="image/*"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Upload an image to be used on your custom product
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 mb-2 font-medium">
-                    Customization Details:
-                  </label>
-                  <textarea
-                    name="customization_details"
-                    value={formData.customization_details}
-                    onChange={handleChange}
-                    placeholder="Describe how you want your product customized..."
-                    className="border rounded-md p-2 w-full h-32 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  ></textarea>
-                </div>
-
-                {product && (
-                  <div className="bg-gray-50 p-4 rounded-md">
-                    <div className="flex justify-between items-center text-lg mb-2">
-                      <span>Base Price:</span>
-                      <span>₹{product.Price.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-lg mb-2">
-                      <span>Quantity:</span>
-                      <span>x {formData.quantity}</span>
-                    </div>
-                    {formData.text.length > 0 && (
-                      <div className="flex justify-between items-center text-lg mb-2">
-                        <span>Text Customization:</span>
-                        <span>+₹{textSurcharge.toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center text-xl font-bold text-primary border-t pt-2">
-                      <span>Total:</span>
-                      <span>₹{totalPrice.toFixed(2)}</span>
-                    </div>
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium">
+                  Text to Print/Engrave:
+                </label>
+                <input
+                  type="text"
+                  name="text"
+                  value={formData.text}
+                  onChange={handleChange}
+                  placeholder="Text you want on your custom product"
+                  className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                {formData.text.length > 0 && (
+                  <div className="mt-2 text-sm">
+                    <p className="flex justify-between">
+                      <span>Characters: {formData.text.length}</span>
+                      <span className="text-primary font-medium">
+                        +₹{textSurcharge}
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Additional ₹10 charge for up to 50 characters, ₹20 for up
+                      to 100 characters, etc.
+                    </p>
                   </div>
                 )}
+              </div>
 
-                <button
-                  type="submit"
-                  className={`bg-primary text-white py-3 rounded-md w-full transition-colors font-medium text-lg ${
-                    isOwnProduct
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:bg-primary/90"
-                  }`}
-                  disabled={!product || isOwnProduct}
-                  title={
-                    isOwnProduct ? "You cannot purchase your own product" : ""
-                  }
-                >
-                  {isOwnProduct
-                    ? "Cannot Purchase Own Product"
-                    : "Proceed to Payment"}
-                </button>
-              </form>
-            )}
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium">
+                  Upload Image (Optional):
+                </label>
+                <input
+                  type="file"
+                  name="image"
+                  onChange={handleImageChange}
+                  className="border p-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  accept="image/*"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Upload an image to be used on your custom product
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium">
+                  Customization Details:
+                </label>
+                <textarea
+                  name="customization_details"
+                  value={formData.customization_details}
+                  onChange={handleChange}
+                  placeholder="Describe how you want your product customized..."
+                  className="border rounded-md p-2 w-full h-32 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                ></textarea>
+              </div>
+
+              {product && (
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <div className="flex justify-between items-center text-lg mb-2">
+                    <span>Base Price:</span>
+                    <span>₹{product.Price.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-lg mb-2">
+                    <span>Quantity:</span>
+                    <span>x {formData.quantity}</span>
+                  </div>
+                  {formData.text.length > 0 && (
+                    <div className="flex justify-between items-center text-lg mb-2">
+                      <span>Text Customization:</span>
+                      <span>+₹{textSurcharge.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-xl font-bold text-primary border-t pt-2">
+                    <span>Total:</span>
+                    <span>₹{totalPrice.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="bg-primary text-white py-3 rounded-md w-full hover:bg-primary/90 transition-colors font-medium text-lg"
+                disabled={!product}
+              >
+                Proceed to Payment
+              </button>
+            </form>
           </div>
         </div>
       </div>

@@ -11,7 +11,7 @@ import {
   FaUser,
   FaUserCircle,
 } from "react-icons/fa";
-import { BsStars } from "react-icons/bs";
+// import { BsStars } from "react-icons/bs";
 
 const ViewDetails = ({ setUser: setGlobalUser }) => {
   const { id } = useParams();
@@ -243,10 +243,10 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
             <FaArrowLeft />
             <span>Back to Dashboard</span>
           </Link>
-          <button className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2">
+          {/* <button className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2">
             <BsStars />
             <span>Customize Your Product</span>
-          </button>
+          </button> */}
         </div>
 
         <div className="bg-white rounded-lg shadow-md overflow-hidden">

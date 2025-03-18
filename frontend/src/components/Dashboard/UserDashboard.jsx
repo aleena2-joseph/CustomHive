@@ -91,7 +91,12 @@ const UserDashboard = ({ user, setUser }) => {
 
     fetchProducts();
   }, []);
-
+  const handleViewDetails = (product) => {
+    // Navigate to product details page or show modal
+    console.log("Viewing details for:", product);
+    // Example: if using React Router
+    // navigate(`/product/${product.id}`);
+  };
   // Filter products based on search term, category, subcategory, and price
   useEffect(() => {
     let results = products;
@@ -554,9 +559,22 @@ const UserDashboard = ({ user, setUser }) => {
                           },
                         }}
                       >
-                        <button className="bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors text-sm">
-                          View Details
-                        </button>
+                        {isProductOwner(product) ? (
+                          <button
+                            disabled
+                            className="bg-gray-300 text-gray-500 py-2 px-4 rounded-md cursor-not-allowed text-sm"
+                            title="You cannot view details of your own product"
+                          >
+                            View Details
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleViewDetails(product)}
+                            className="bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors text-sm"
+                          >
+                            View Details
+                          </button>
+                        )}
                       </Link>
 
                       {/* Conditional rendering for Add to Cart button */}
