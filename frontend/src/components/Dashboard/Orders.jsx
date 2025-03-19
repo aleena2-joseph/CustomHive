@@ -9,7 +9,7 @@ const Orders = ({ setUser: setGlobalUser }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const initialProduct = location.state?.product;
-
+  const [quantity, setQuantity] = useState(1);
   const [user, setLocalUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
@@ -17,16 +17,18 @@ const Orders = ({ setUser: setGlobalUser }) => {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const MAX_QUANTITY = product?.stock || 1;
 
   const [formData, setFormData] = useState({
     text: "",
     image: null,
     customization_details: "",
-    quantity: 1,
+    quantity: 1, // Initialize with 1
   });
 
   // Calculate additional price based on text length
   const calculateTextSurcharge = (text) => {
+    if (!product?.isTextNeeded) return 0;
     const textLength = text.length;
     if (textLength === 0) return 0;
     if (textLength <= 50) return 10;
@@ -105,6 +107,15 @@ const Orders = ({ setUser: setGlobalUser }) => {
       fetchProductDetails();
     }
   }, [initialProduct, navigate]);
+
+  // Effect to update formData.quantity when quantity state changes
+  useEffect(() => {
+    setFormData((prevData) => ({
+      ...prevData,
+      quantity: quantity,
+    }));
+  }, [quantity]);
+
   const handleLogout = async () => {
     try {
       await axios.get("http://localhost:5000/logout", {
@@ -119,6 +130,28 @@ const Orders = ({ setUser: setGlobalUser }) => {
       setGlobalUser(null);
     }
     navigate("/login");
+  };
+
+  const incrementQuantity = () => {
+    if (quantity < MAX_QUANTITY) {
+      setQuantity((prevQuantity) => prevQuantity + 1);
+    }
+  };
+
+  const decrementQuantity = () => {
+    if (quantity > 1) {
+      setQuantity((prevQuantity) => prevQuantity - 1);
+    }
+  };
+
+  const handleQuantityChange = (e) => {
+    let value = parseInt(e.target.value, 10);
+    if (isNaN(value) || value < 1) {
+      value = 1;
+    } else if (value > MAX_QUANTITY) {
+      value = MAX_QUANTITY;
+    }
+    setQuantity(value);
   };
 
   const handleChange = (e) => {
@@ -149,10 +182,17 @@ const Orders = ({ setUser: setGlobalUser }) => {
     formDataToSend.append("product_id", product.Product_id);
     formDataToSend.append("quantity", formData.quantity);
     formDataToSend.append("total_amount", totalPrice);
-    formDataToSend.append("text", formData.text);
-    if (formData.image) {
+
+    // Only add text if text customization is needed
+    if (product.isTextNeeded) {
+      formDataToSend.append("text", formData.text);
+    }
+
+    // Only add image if image customization is needed
+    if (product.isImageNeeded && formData.image) {
       formDataToSend.append("image", formData.image);
     }
+
     formDataToSend.append(
       "customization_details",
       formData.customization_details
@@ -315,64 +355,92 @@ const Orders = ({ setUser: setGlobalUser }) => {
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="block text-gray-700 mb-2 font-medium">
-                  Quantity:
-                </label>
-                <input
-                  type="number"
-                  name="quantity"
-                  min="1"
-                  max="20"
-                  value={formData.quantity}
-                  onChange={handleChange}
-                  className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 mb-2 font-medium">
-                  Text to Print/Engrave:
-                </label>
-                <input
-                  type="text"
-                  name="text"
-                  value={formData.text}
-                  onChange={handleChange}
-                  placeholder="Text you want on your custom product"
-                  className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-                {formData.text.length > 0 && (
-                  <div className="mt-2 text-sm">
-                    <p className="flex justify-between">
-                      <span>Characters: {formData.text.length}</span>
-                      <span className="text-primary font-medium">
-                        +₹{textSurcharge}
-                      </span>
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Additional ₹10 charge for up to 50 characters, ₹20 for up
-                      to 100 characters, etc.
-                    </p>
-                  </div>
+              <div className="mb-6">
+                <p className="text-gray-700 mb-2">
+                  Quantity (1-{MAX_QUANTITY}):
+                </p>
+                <div className="flex items-center border border-gray-300 rounded-md w-32">
+                  <button
+                    type="button" // Add type="button" to prevent form submission
+                    onClick={decrementQuantity}
+                    className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                    disabled={quantity <= 1}
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    max={MAX_QUANTITY}
+                    value={quantity}
+                    onChange={handleQuantityChange}
+                    className="w-12 text-center border-none focus:ring-0"
+                  />
+                  <button
+                    type="button" // Add type="button" to prevent form submission
+                    onClick={incrementQuantity}
+                    className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                    disabled={quantity >= MAX_QUANTITY}
+                  >
+                    +
+                  </button>
+                </div>
+                {quantity >= MAX_QUANTITY && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Maximum quantity reached.
+                  </p>
                 )}
               </div>
 
-              <div>
-                <label className="block text-gray-700 mb-2 font-medium">
-                  Upload Image (Optional):
-                </label>
-                <input
-                  type="file"
-                  name="image"
-                  onChange={handleImageChange}
-                  className="border p-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  accept="image/*"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Upload an image to be used on your custom product
-                </p>
-              </div>
+              {/* Only show text input if isTextNeeded is 1 */}
+              {product?.isTextNeeded === 1 && (
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">
+                    Text to Print/Engrave:
+                  </label>
+                  <input
+                    type="text"
+                    name="text"
+                    value={formData.text}
+                    onChange={handleChange}
+                    placeholder="Text you want on your custom product"
+                    className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                  {formData.text.length > 0 && (
+                    <div className="mt-2 text-sm">
+                      <p className="flex justify-between">
+                        <span>Characters: {formData.text.length}</span>
+                        <span className="text-primary font-medium">
+                          +₹{textSurcharge}
+                        </span>
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Additional ₹10 charge for up to 50 characters, ₹20 for
+                        up to 100 characters, etc.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Only show image upload if isImageNeeded is 1 */}
+              {product?.isImageNeeded === 1 && (
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">
+                    Upload Image:
+                  </label>
+                  <input
+                    type="file"
+                    name="image"
+                    onChange={handleImageChange}
+                    className="border p-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    accept="image/*"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Upload an image to be used on your custom product
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-gray-700 mb-2 font-medium">
@@ -397,7 +465,7 @@ const Orders = ({ setUser: setGlobalUser }) => {
                     <span>Quantity:</span>
                     <span>x {formData.quantity}</span>
                   </div>
-                  {formData.text.length > 0 && (
+                  {product.isTextNeeded === 1 && formData.text.length > 0 && (
                     <div className="flex justify-between items-center text-lg mb-2">
                       <span>Text Customization:</span>
                       <span>+₹{textSurcharge.toFixed(2)}</span>
@@ -424,7 +492,9 @@ const Orders = ({ setUser: setGlobalUser }) => {
     </div>
   );
 };
+
 Orders.propTypes = {
   setUser: PropTypes.func,
 };
+
 export default Orders;
