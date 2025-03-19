@@ -54,6 +54,7 @@ const ProfilePage = ({ setUser }) => {
         Stock: selectedProduct.Stock,
         isImageNeeded: selectedProduct.isImageNeeded,
         isTextNeeded: selectedProduct.isTextNeeded,
+        max_characters: selectedProduct.max_characters, // Add max_characters to update
       };
 
       await axios.put(
@@ -106,7 +107,9 @@ const ProfilePage = ({ setUser }) => {
     stock: 1,
     isImageNeeded: true, // Default to true
     isTextNeeded: true, // Default to true
+    max_characters: 100, // Default value for maximum characters
   });
+
   // Fetch products for the current user (using session and explicit email parameter)
   useEffect(() => {
     if (user && user.email) {
@@ -250,6 +253,7 @@ const ProfilePage = ({ setUser }) => {
   const handleFileChange = (e) => {
     setNewProduct({ ...newProduct, image: e.target.files[0] });
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -266,6 +270,7 @@ const ProfilePage = ({ setUser }) => {
       formData.append("email", user?.email || "");
       formData.append("isImageNeeded", newProduct.isImageNeeded);
       formData.append("isTextNeeded", newProduct.isTextNeeded);
+      formData.append("max_characters", newProduct.max_characters); // Add max_characters
 
       if (newProduct.image) {
         formData.append("image", newProduct.image);
@@ -288,6 +293,7 @@ const ProfilePage = ({ setUser }) => {
           description: "",
           isImageNeeded: true,
           isTextNeeded: true,
+          max_characters: 100, // Reset to default value
           image: null,
         });
 
@@ -313,6 +319,7 @@ const ProfilePage = ({ setUser }) => {
       alert("An error occurred.");
     }
   };
+
   const addProduct = async (e) => {
     e.preventDefault();
 
@@ -341,6 +348,8 @@ const ProfilePage = ({ setUser }) => {
     formData.append("email", user?.email || "");
     formData.append("isImageNeeded", newProduct.isImageNeeded);
     formData.append("isTextNeeded", newProduct.isTextNeeded);
+    formData.append("max_characters", newProduct.max_characters); // Add max_characters
+
     if (newProduct.image) {
       formData.append("image", newProduct.image);
     }
@@ -576,7 +585,29 @@ const ProfilePage = ({ setUser }) => {
                     </p>
                   )}
                 </div>
+
+                {/* Maximum Characters - NEW FIELD */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Maximum Characters
+                  </label>
+                  <input
+                    type="number"
+                    name="max_characters"
+                    value={newProduct.max_characters}
+                    onChange={handleProductChange}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/10"
+                    placeholder="Maximum Characters"
+                    min="1"
+                    max="1000"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Maximum number of characters customers can input for
+                    customization
+                  </p>
+                </div>
               </div>
+
               {/* Stock */}
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
@@ -665,7 +696,8 @@ const ProfilePage = ({ setUser }) => {
                   </p>
                 )}
               </div>
-              {/* Add these right after the Product Image section */}
+
+              {/* Customization Options */}
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
                   Customization Options
@@ -725,7 +757,6 @@ const ProfilePage = ({ setUser }) => {
               </button>
             </form>
           </div>
-
           {/* Product List */}
           <div>
             <h4 className="text-lg font-semibold text-gray-700 mb-4">
@@ -789,7 +820,6 @@ const ProfilePage = ({ setUser }) => {
                             Edit
                           </button>
                           {showModal && selectedProduct && (
-                           
                             <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
                               <div className="bg-white p-5 rounded-lg shadow-lg w-96 max-w-full max-h-[90vh] overflow-y-auto">
                                 <h2 className="text-lg font-semibold mb-3">

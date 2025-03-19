@@ -26,15 +26,18 @@ const Orders = ({ setUser: setGlobalUser }) => {
     quantity: 1, // Initialize with 1
   });
 
-  // Calculate additional price based on text length
+  // Calculate additional price based on text length and max_characters
   const calculateTextSurcharge = (text) => {
     if (!product?.isTextNeeded) return 0;
     const textLength = text.length;
     if (textLength === 0) return 0;
-    if (textLength <= 50) return 10;
-    if (textLength <= 100) return 20;
-    if (textLength <= 150) return 30;
-    return Math.ceil(textLength / 50) * 10; // Additional Rs.10 for every 50 characters
+
+    // Get max_characters from product or default to 50
+    const maxChars = product.max_characters || 50;
+
+    // Calculate charges based on text length
+    const charBlocks = Math.ceil(textLength / maxChars);
+    return charBlocks * 10; // Rs.10 for each block of characters
   };
 
   // Calculate total price including text surcharge
@@ -76,36 +79,40 @@ const Orders = ({ setUser: setGlobalUser }) => {
       return;
     }
 
-    // Check if we already have complete product information
-    if (initialProduct.Product_id && initialProduct.Price) {
-      // Make sure we properly set the product image URL
-      const productWithImage = {
-        ...initialProduct,
-        product_image:
-          initialProduct.product_image || initialProduct.Product_image,
-      };
-      setProduct(productWithImage);
-      setLoading(false);
-    } else {
-      // If not complete, fetch from API
-      const fetchProductDetails = async () => {
-        try {
-          setLoading(true);
-          const response = await axios.get(
-            `http://localhost:5000/api/ord_prod/${
-              initialProduct.Product_id || initialProduct.product_id
-            }`
-          );
-          setProduct(response.data);
-        } catch (err) {
-          console.error("Error fetching product details:", err);
-          setError("Failed to load product details. Please try again.");
-        } finally {
-          setLoading(false);
+    const fetchProductDetails = async () => {
+      try {
+        setLoading(true);
+        const productId =
+          initialProduct.Product_id || initialProduct.product_id;
+        const response = await axios.get(
+          `http://localhost:5000/api/ord_prod/${productId}`
+        );
+
+        // Set product data with properly formatted image URL
+        const productData = response.data;
+
+        // Format image URL if needed
+        if (productData.product_image) {
+          if (
+            !productData.product_image.startsWith("http") &&
+            !productData.product_image.startsWith("/")
+          ) {
+            productData.product_image = `http://localhost:5000/${productData.product_image}`;
+          } else if (productData.product_image.startsWith("/")) {
+            productData.product_image = `http://localhost:5000${productData.product_image}`;
+          }
         }
-      };
-      fetchProductDetails();
-    }
+
+        setProduct(productData);
+        setLoading(false);
+      } catch (err) {
+        console.error("Error fetching product details:", err);
+        setError("Failed to load product details. Please try again.");
+        setLoading(false);
+      }
+    };
+
+    fetchProductDetails();
   }, [initialProduct, navigate]);
 
   // Effect to update formData.quantity when quantity state changes
@@ -186,6 +193,7 @@ const Orders = ({ setUser: setGlobalUser }) => {
     // Only add text if text customization is needed
     if (product.isTextNeeded) {
       formDataToSend.append("text", formData.text);
+      formDataToSend.append("text_charges", textSurcharge); // Add text charges
     }
 
     // Only add image if image customization is needed
@@ -289,11 +297,8 @@ const Orders = ({ setUser: setGlobalUser }) => {
                 <div className="mb-4 flex justify-center">
                   <img
                     src={
-                      product.product_image?.startsWith("http")
-                        ? product.product_image
-                        : product.product_image?.startsWith("/")
-                        ? `http://localhost:5000${product.product_image}`
-                        : `http://localhost:5000/${product.product_image}`
+                      product.product_image ||
+                      "https://via.placeholder.com/400x300?text=Image+Not+Available"
                     }
                     alt={product.Product_name}
                     className="max-w-full h-auto max-h-64 object-contain rounded-md"
@@ -361,7 +366,7 @@ const Orders = ({ setUser: setGlobalUser }) => {
                 </p>
                 <div className="flex items-center border border-gray-300 rounded-md w-32">
                   <button
-                    type="button" // Add type="button" to prevent form submission
+                    type="button"
                     onClick={decrementQuantity}
                     className="px-3 py-1 text-gray-600 hover:bg-gray-100"
                     disabled={quantity <= 1}
@@ -377,7 +382,7 @@ const Orders = ({ setUser: setGlobalUser }) => {
                     className="w-12 text-center border-none focus:ring-0"
                   />
                   <button
-                    type="button" // Add type="button" to prevent form submission
+                    type="button"
                     onClick={incrementQuantity}
                     className="px-3 py-1 text-gray-600 hover:bg-gray-100"
                     disabled={quantity >= MAX_QUANTITY}
@@ -392,7 +397,7 @@ const Orders = ({ setUser: setGlobalUser }) => {
                 )}
               </div>
 
-              {/* Only show text input if isTextNeeded is 1 */}
+              {/* Text customization with max_characters info */}
               {product?.isTextNeeded === 1 && (
                 <div>
                   <label className="block text-gray-700 mb-2 font-medium">
@@ -405,6 +410,9 @@ const Orders = ({ setUser: setGlobalUser }) => {
                     onChange={handleChange}
                     placeholder="Text you want on your custom product"
                     className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    maxLength={
+                      product.max_characters ? product.max_characters * 5 : 250
+                    } // Limit max length to 5x max_characters or 250
                   />
                   {formData.text.length > 0 && (
                     <div className="mt-2 text-sm">
@@ -415,15 +423,16 @@ const Orders = ({ setUser: setGlobalUser }) => {
                         </span>
                       </p>
                       <p className="text-xs text-gray-500">
-                        Additional ₹10 charge for up to 50 characters, ₹20 for
-                        up to 100 characters, etc.
+                        {product.max_characters
+                          ? `Additional ₹10 charge for every ${product.max_characters} characters`
+                          : "Additional ₹10 charge for every 50 characters"}
                       </p>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Only show image upload if isImageNeeded is 1 */}
+              {/* Image upload */}
               {product?.isImageNeeded === 1 && (
                 <div>
                   <label className="block text-gray-700 mb-2 font-medium">

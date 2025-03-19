@@ -1056,6 +1056,7 @@ app.post("/api/products", upload.single("image"), (req, res) => {
     email,
     isImageNeeded,
     isTextNeeded,
+    max_characters, // Added max_characters from request body
   } = req.body;
 
   // Get image path if uploaded
@@ -1063,8 +1064,8 @@ app.post("/api/products", upload.single("image"), (req, res) => {
 
   const sql = `
     INSERT INTO products 
-    (Product_name, Description, Price, Subcategory_id, Stock, Email, Product_image, isImageNeeded, isTextNeeded, Status) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (Product_name, Description, Price, Subcategory_id, Stock, Email, Product_image, isImageNeeded, isTextNeeded, max_characters, Status) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   db.query(
@@ -1079,6 +1080,7 @@ app.post("/api/products", upload.single("image"), (req, res) => {
       imagePath,
       isImageNeeded === "true" || isImageNeeded === true ? 1 : 0,
       isTextNeeded === "true" || isTextNeeded === true ? 1 : 0,
+      max_characters, // Added to query values
       1, // Default status (assuming 1 means active)
     ],
     (err, result) => {
@@ -1227,8 +1229,6 @@ app.get("/api/prod/:id", (req, res) => {
   });
 });
 
-//To get product details to order page
-// Updated API endpoint to properly include product image
 app.get("/api/ord_prod/:id", (req, res) => {
   const productId = req.params.id;
   console.log("Received request for product ID:", productId);
@@ -1237,12 +1237,13 @@ app.get("/api/ord_prod/:id", (req, res) => {
     return res.status(400).json({ error: "Product ID is required" });
   }
 
-  // First, get the basic product information
+  // First, get the basic product information, including max_characters
   const productSql = `
     SELECT 
-      p.*,
-      u.name AS seller_name,
-      c.category_name,
+      p.*, 
+      p.max_characters, 
+      u.name AS seller_name, 
+      c.category_name, 
       s.subcategory_name
     FROM products p
     LEFT JOIN tbl_users u ON p.email = u.email
@@ -1304,7 +1305,7 @@ app.get("/api/ord_prod/:id", (req, res) => {
     });
   });
 });
-// app.get("/api/all-products", (req, res) => {
+
 //   const sql = `
 //     SELECT p.*, u.name AS seller_name,
 //            MAX(bt.type_name) AS business_type,
@@ -1574,31 +1575,50 @@ app.post("/api/orders", upload.single("image"), (req, res) => {
     product_id,
     quantity,
     total_amount,
+    max_characters,
     text,
-    customization_details,
+    customization_description,
   } = req.body;
   const image = req.file ? req.file.path : null;
 
-  const sql =
-    "INSERT INTO orders (email, product_id, quantity, total_amount, text, image, customization_details) VALUES (?, ?, ?, ?, ?, ?, ?)";
-  const values = [
-    email,
-    product_id,
-    quantity,
-    total_amount,
-    text,
-    image,
-    customization_details,
-  ];
+  // Insert into orders table first
+  const orderSql =
+    "INSERT INTO orders (email, product_id, quantity, total_amount) VALUES (?, ?, ?, ?)";
+  const orderValues = [email, product_id, quantity, total_amount];
 
-  db.query(sql, values, (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.status(201).json({
-      message: "Order placed successfully!",
-      order_id: result.insertId,
-    });
+  db.query(orderSql, orderValues, (orderErr, orderResult) => {
+    if (orderErr) return res.status(500).json({ error: orderErr.message });
+
+    const order_id = orderResult.insertId; // Get the newly created order ID
+
+    // Insert into customization_details table
+    const customizationSql =
+      "INSERT INTO customization_details (order_id, max_characters, text, image, customization_description) VALUES (?, ?, ?, ?, ?)";
+    const customizationValues = [
+      order_id,
+      max_characters,
+      text,
+      image,
+      customization_description,
+    ];
+
+    db.query(
+      customizationSql,
+      customizationValues,
+      (customErr, customResult) => {
+        if (customErr)
+          return res.status(500).json({ error: customErr.message });
+
+        res.status(201).json({
+          message: "Order placed successfully!",
+          order_id: order_id,
+          customization_id: customResult.insertId,
+        });
+      }
+    );
   });
 });
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

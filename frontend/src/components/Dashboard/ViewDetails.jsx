@@ -12,8 +12,7 @@ import {
   FaUserCircle,
 } from "react-icons/fa";
 // import { BsStars } from "react-icons/bs";
-
-const ViewDetails = ({ setUser: setGlobalUser }) => {
+const ViewDetails = ({ setUser: setGlobalUser = () => {} }) => {
   const { id } = useParams();
   const navigate = useNavigate(); // Added missing navigate definition
   const [product, setProduct] = useState(null);
@@ -25,10 +24,6 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
-
-  // Maximum quantity limit
-  //const MAX_QUANTITY = product?.stock || 1; // Use product stock or default to 1
-  // Assuming 'stock' is passed as a prop or fetched from the backend
 
   useEffect(() => {
     // If no user is found in local state, try to get from session
@@ -467,9 +462,8 @@ ViewDetails.propTypes = {
   setUser: PropTypes.func.isRequired,
 };
 
-// Add default props
 ViewDetails.defaultProps = {
-  user: null,
+  setUser: () => {},
 };
 
 export default ViewDetails;
