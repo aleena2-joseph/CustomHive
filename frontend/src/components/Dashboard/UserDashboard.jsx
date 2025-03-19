@@ -538,12 +538,12 @@ const UserDashboard = ({ user, setUser }) => {
                     {/* Status Badge */}
                     <p
                       className={`text-[10px] font-semibold py-1 px-2 rounded-full text-center mb-2
-                        ${
-                          product.status === 0
-                            ? "bg-red-100 text-red-600 border border-red-400 w-fit"
-                            : "hidden"
-                        }
-                      `}
+    ${
+      product.status === 0 || product.stock === 0
+        ? "bg-red-100 text-red-600 border border-red-400 w-fit"
+        : "hidden"
+    }
+  `}
                     >
                       Out of Stock
                     </p>

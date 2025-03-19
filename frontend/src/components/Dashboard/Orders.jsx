@@ -3,17 +3,17 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import logo from "../../components/Products/Navbar/logo.png";
 import { FaUserCircle, FaArrowLeft } from "react-icons/fa";
+import PropTypes from "prop-types";
 
-const Orders = () => {
+const Orders = ({ setUser: setGlobalUser }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const initialProduct = location.state?.product;
 
-  const [user, setUser] = useState(() => {
+  const [user, setLocalUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
-
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,14 +42,19 @@ const Orders = () => {
 
   // Fetch user session if not available
   useEffect(() => {
+    // If no user is found in local state, try to get from session
     if (!user) {
       axios
         .get("http://localhost:5000/api/session", { withCredentials: true })
         .then((response) => {
           if (response.data.user) {
             const userData = response.data.user;
-            setUser(userData);
+            setLocalUser(userData);
             localStorage.setItem("user", JSON.stringify(userData));
+            // Update global user state if the setter function exists
+            if (typeof setGlobalUser === "function") {
+              setGlobalUser(userData);
+            }
           } else {
             // No user in session, redirect to login
             navigate("/login");
@@ -60,7 +65,7 @@ const Orders = () => {
           navigate("/login");
         });
     }
-  }, [user, navigate]);
+  }, [user, setGlobalUser, navigate]);
 
   useEffect(() => {
     if (!initialProduct) {
@@ -100,6 +105,21 @@ const Orders = () => {
       fetchProductDetails();
     }
   }, [initialProduct, navigate]);
+  const handleLogout = async () => {
+    try {
+      await axios.get("http://localhost:5000/logout", {
+        withCredentials: true,
+      });
+    } catch (error) {
+      console.error("Server logout error:", error);
+    }
+    localStorage.removeItem("user");
+    setLocalUser(null);
+    if (typeof setGlobalUser === "function") {
+      setGlobalUser(null);
+    }
+    navigate("/login");
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -198,6 +218,12 @@ const Orders = () => {
             <span className="hidden md:inline text-gray-700">
               {user?.name || "Guest"}
             </span>
+            <button
+              onClick={handleLogout}
+              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </div>
@@ -398,5 +424,7 @@ const Orders = () => {
     </div>
   );
 };
-
+Orders.propTypes = {
+  setUser: PropTypes.func,
+};
 export default Orders;

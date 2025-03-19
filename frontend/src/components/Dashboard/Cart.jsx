@@ -70,10 +70,11 @@ const Cart = ({ setUser: setGlobalUser }) => {
 
         console.log("Cart API response:", response.data);
 
-        // Add a quantity property to each cart item
+        // Ensure stock value is included
         const itemsWithQuantity = response.data.map((item) => ({
           ...item,
           quantity: 1,
+          stock: item.stock || 1, // Default to 1 if stock is not provided
         }));
 
         setCartItems(itemsWithQuantity);
@@ -99,10 +100,9 @@ const Cart = ({ setUser: setGlobalUser }) => {
     }
   };
 
-  const handleQuantityChange = (cartItemId, newQuantity) => {
-    // Ensure quantity stays within range of 1-20
+  const handleQuantityChange = (cartItemId, newQuantity, stock) => {
     if (newQuantity < 1) return;
-    if (newQuantity > 20) return;
+    if (newQuantity > stock) return; // Prevent exceeding stock availability
 
     setCartItems(
       cartItems.map((item) =>
@@ -110,6 +110,7 @@ const Cart = ({ setUser: setGlobalUser }) => {
       )
     );
   };
+
   const handleCheckout = () => {
     // Implement checkout process here
     alert("Checkout feature will be implemented soon!");
@@ -263,29 +264,35 @@ const Cart = ({ setUser: setGlobalUser }) => {
                               onClick={() =>
                                 handleQuantityChange(
                                   item.cart_id,
-                                  item.quantity - 1
+                                  item.quantity - 1,
+                                  item.stock
                                 )
                               }
-                              className="bg-gray-200 px-3 py-1 rounded-l-md"
+                              className="px-2 py-1 border rounded-md bg-gray-200 hover:bg-gray-300"
+                              disabled={item.quantity <= 1}
                             >
                               -
                             </button>
-                            <span className="bg-white px-4 py-1 border-y">
-                              {item.quantity}
-                            </span>
+                            <span className="px-3">{item.quantity}</span>
                             <button
                               onClick={() =>
                                 handleQuantityChange(
                                   item.cart_id,
-                                  item.quantity + 1
+                                  item.quantity + 1,
+                                  item.stock
                                 )
                               }
-                              className="bg-gray-200 px-3 py-1 rounded-r-md"
+                              className="px-2 py-1 border rounded-md bg-gray-200 hover:bg-gray-300"
+                              disabled={item.quantity >= item.stock} // Disable button if stock is reached
                             >
                               +
                             </button>
                           </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Stock: {item.stock}
+                          </p>
                         </td>
+
                         <td className="px-4 py-4 text-center font-medium">
                           ₹
                           {(

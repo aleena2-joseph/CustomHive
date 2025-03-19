@@ -27,7 +27,9 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
   });
 
   // Maximum quantity limit
-  const MAX_QUANTITY = 20;
+  const MAX_QUANTITY = product?.stock || 1; // Use product stock or default to 1
+  // Assuming 'stock' is passed as a prop or fetched from the backend
+
   useEffect(() => {
     // If no user is found in local state, try to get from session
     if (!user) {
@@ -133,21 +135,43 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
     }
   };
 
+  // const incrementQuantity = () => {
+  //   setQuantity((prev) => (prev < MAX_QUANTITY ? prev + 1 : prev));
+  // };
+
+  // const decrementQuantity = () => {
+  //   if (quantity > 1) {
+  //     setQuantity((prev) => prev - 1);
+  //   }
+  // };
+
+  // // Handle quantity change from input
+  // const handleQuantityChange = (e) => {
+  //   const value = parseInt(e.target.value) || 1;
+  //   // Ensure quantity is between 1 and MAX_QUANTITY
+  //   setQuantity(Math.min(Math.max(1, value), MAX_QUANTITY));
+  // };
+
   const incrementQuantity = () => {
-    setQuantity((prev) => (prev < MAX_QUANTITY ? prev + 1 : prev));
+    if (quantity < MAX_QUANTITY) {
+      setQuantity(quantity + 1);
+    }
   };
 
   const decrementQuantity = () => {
     if (quantity > 1) {
-      setQuantity((prev) => prev - 1);
+      setQuantity(quantity - 1);
     }
   };
 
-  // Handle quantity change from input
   const handleQuantityChange = (e) => {
-    const value = parseInt(e.target.value) || 1;
-    // Ensure quantity is between 1 and MAX_QUANTITY
-    setQuantity(Math.min(Math.max(1, value), MAX_QUANTITY));
+    let value = parseInt(e.target.value, 10);
+    if (isNaN(value) || value < 1) {
+      value = 1;
+    } else if (value > MAX_QUANTITY) {
+      value = MAX_QUANTITY;
+    }
+    setQuantity(value);
   };
 
   if (loading)
@@ -354,7 +378,6 @@ const ViewDetails = ({ setUser: setGlobalUser }) => {
                   </p>
                 )}
               </div>
-
               {/* Add to Cart and Buy Now buttons */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <button

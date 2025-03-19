@@ -1046,124 +1046,55 @@ app.put("/api/update-subcategory/:id", (req, res) => {
 
 // Initialize Multer with the storage configuration
 const upload = multer({ storage: storage });
-
-// Add a new product
-
 app.post("/api/products", upload.single("image"), (req, res) => {
-  console.log("Request body:", req.body);
+  const {
+    name,
+    description,
+    price,
+    subcategory_id,
+    stock,
+    email,
+    isImageNeeded,
+    isTextNeeded,
+  } = req.body;
 
-  const { name, description, price, subcategory_id, business_id, email } =
-    req.body;
-  const userEmail =
-    email || (req.session && req.session.user ? req.session.user.email : null);
+  // Get image path if uploaded
+  const imagePath = req.file ? req.file.path.replace(/\\/g, "/") : null;
 
-  if (!name || !price || !subcategory_id || !userEmail || !business_id) {
-    console.error("Missing fields:", {
-      name,
-      price,
-      subcategory_id,
-      userEmail,
-      business_id,
-    });
-    return res.status(400).json({
-      error: "Enter all fileds correctly",
-    });
-  }
-
-  // Check price range from the `categories` table
-  const categoryQuery = `
-    SELECT min_price, max_price FROM categories 
-    WHERE business_id = ? AND category_id = (SELECT category_id FROM subcategories WHERE subcategory_id = ?)
+  const sql = `
+    INSERT INTO products 
+    (Product_name, Description, Price, Subcategory_id, Stock, Email, Product_image, isImageNeeded, isTextNeeded, Status) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(categoryQuery, [business_id, subcategory_id], (err, results) => {
-    if (err) {
-      console.error("Error fetching category price range:", err);
-      return res
-        .status(500)
-        .json({ error: "Database error while checking category price range" });
-    }
+  db.query(
+    sql,
+    [
+      name,
+      description,
+      price,
+      subcategory_id,
+      stock,
+      email,
+      imagePath,
+      isImageNeeded === "true" || isImageNeeded === true ? 1 : 0,
+      isTextNeeded === "true" || isTextNeeded === true ? 1 : 0,
+      1, // Default status (assuming 1 means active)
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("Error adding product:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
 
-    if (results.length === 0) {
-      return res.status(400).json({ error: "Invalid category or subcategory" });
-    }
-
-    const { min_price, max_price } = results[0];
-
-    // Validate price within the category range
-    if (
-      parseFloat(price) < parseFloat(min_price) ||
-      parseFloat(price) > parseFloat(max_price)
-    ) {
-      return res.status(400).json({
-        error: `Price should be between ${min_price} and ${max_price} for the selected category.`,
+      res.status(201).json({
+        message: "Product added successfully",
+        productId: result.insertId,
       });
     }
-
-    // Insert product if price is valid
-    const imagePath = req.file ? req.file.path : null;
-    const status = 1;
-
-    const sql = `
-      INSERT INTO products (Product_name, Description, Price, Subcategory_id, Status, Product_image, email)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    db.query(
-      sql,
-      [
-        name,
-        description || "",
-        price,
-        subcategory_id,
-        status,
-        imagePath,
-        userEmail,
-      ],
-      (err, result) => {
-        if (err) {
-          console.error("Error inserting product:", err);
-          return res
-            .status(500)
-            .json({ error: "Database error: " + err.message });
-        }
-
-        // Update or insert into `business_profile`
-        const sqlBusinessProfile = `
-        INSERT INTO business_profile (email, business_id, status)
-        VALUES (?, ?, 1)
-        ON DUPLICATE KEY UPDATE business_id = VALUES(business_id)
-      `;
-
-        db.query(
-          sqlBusinessProfile,
-          [userEmail, business_id],
-          (err2, result2) => {
-            if (err2) {
-              console.error("Error updating business profile:", err2);
-              return res.status(500).json({
-                error:
-                  "Database error when updating business profile: " +
-                  err2.message,
-              });
-            }
-            res.status(201).json({
-              Product_id: result.insertId,
-              Product_name: name,
-              Description: description || "",
-              Price: price,
-              Subcategory_id: subcategory_id,
-              Status: status,
-              Product_image: imagePath,
-              email: userEmail,
-              message: "Product added successfully!",
-            });
-          }
-        );
-      }
-    );
-  });
+  );
 });
+
 // Add this endpoint to your server.js or routes file
 app.get("/api/price-range", (req, res) => {
   const { business_id, subcategory_id } = req.query;
@@ -1230,25 +1161,38 @@ app.get("/api/products", (req, res) => {
 // Get a specific product by ID
 
 // Update product status
-app.put("/api/products/:id", (req, res) => {
+// This endpoint updates a product by ID
+app.put("/api/update-product/:id", (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const {
+    Product_name,
+    Price,
+    Description,
+    Stock,
+    isImageNeeded,
+    isTextNeeded,
+  } = req.body;
 
-  const sql = "UPDATE products SET Status = ? WHERE Product_id = ?";
-  db.query(sql, [status, id], (err, result) => {
-    if (err) {
-      console.error("Error updating product status:", err);
-      return res.status(500).json({ error: "Database error" });
+  const sql =
+    "UPDATE products SET Product_name = ?, Price = ?, Description = ?, Stock = ?, isImageNeeded = ?, isTextNeeded = ? WHERE Product_id = ?";
+
+  db.query(
+    sql,
+    [Product_name, Price, Description, Stock, isImageNeeded, isTextNeeded, id],
+    (err, result) => {
+      if (err) {
+        console.error("Error updating product:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      res.json({ message: "Product updated successfully" });
     }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
-    res.json({ message: "Product status updated successfully" });
-  });
+  );
 });
-// Get all products from all users
 app.get("/api/prod/:id", (req, res) => {
   const productId = req.params.id;
   console.log("Received request for product ID:", productId);
@@ -1442,7 +1386,7 @@ app.get("/api/products/count", (req, res) => {
 });
 app.put("/api/update-product/:id", (req, res) => {
   const { id } = req.params;
-  const { Product_name, Price, Description } = req.body;
+  const { Product_name, Price, Description, Stock } = req.body;
 
   // Validate required fields
   if (!Product_name || !Price) {
@@ -1451,26 +1395,35 @@ app.put("/api/update-product/:id", (req, res) => {
       .json({ error: "Product name and price are required" });
   }
 
-  const sql = `UPDATE products SET Product_name = ?, Price = ?, Description = ? WHERE Product_id = ?`;
+  if (Stock < 0 || Stock > 100) {
+    return res.status(400).json({ error: "Stock must be between 0 and 100" });
+  }
 
-  db.query(sql, [Product_name, Price, Description, id], (err, result) => {
-    if (err) {
-      console.error("Database error:", err);
-      return res.status(500).json({ error: "Database error" });
+  const sql = `UPDATE products SET Product_name = ?, Price = ?, Description = ?, Stock = ? WHERE Product_id = ?`;
+
+  db.query(
+    sql,
+    [Product_name, Price, Description, Stock, id],
+    (err, result) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      res.json({
+        message: "Product updated successfully!",
+        Product_id: id,
+        Product_name,
+        Price,
+        Description,
+        Stock,
+      });
     }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
-    res.json({
-      message: "Product updated successfully!",
-      Product_id: id,
-      Product_name,
-      Price,
-      Description,
-    });
-  });
+  );
 });
 
 app.get("/api/business-profile/owners-count", (req, res) => {
@@ -1514,18 +1467,18 @@ app.get("/api/cart/:email", async (req, res) => {
   try {
     // Query to join cart table with products table to get product details
     const sql = `
-      SELECT c.cart_id, c.email, c.product_id, c.added_at, 
-             p.Product_name, p.Price, p.Description, p.Product_image, 
-             p.Subcategory_id, u.name AS seller_name,
-             s.subcategory_name, cat.category_name
-      FROM cart c
-      JOIN products p ON c.product_id = p.Product_id
-      LEFT JOIN tbl_users u ON p.email = u.email
-      LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
-      LEFT JOIN categories cat ON s.category_id = cat.category_id
-      WHERE c.email = ?
-      ORDER BY c.added_at DESC
-    `;
+  SELECT c.cart_id, c.email, c.product_id, c.added_at, 
+         p.Product_name, p.Price, p.Description, p.Product_image, 
+         p.Subcategory_id, p.Stock AS stock, u.name AS seller_name,
+         s.subcategory_name, cat.category_name
+  FROM cart c
+  JOIN products p ON c.product_id = p.Product_id
+  LEFT JOIN tbl_users u ON p.email = u.email
+  LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
+  LEFT JOIN categories cat ON s.category_id = cat.category_id
+  WHERE c.email = ?
+  ORDER BY c.added_at DESC
+`;
 
     db.query(sql, [email], (err, rows) => {
       if (err) {
