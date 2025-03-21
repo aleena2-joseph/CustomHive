@@ -12,7 +12,7 @@ const validator = require("validator");
 const { v4: uuidv4 } = require("uuid");
 const multer = require("multer");
 const path = require("path");
-
+const Razorpay = require("razorpay");
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -148,6 +148,10 @@ passport.use(
     }
   )
 );
+const razorpay = new Razorpay({
+  key_id: "rzp_test_9QpKV5f6tjujcT",
+  key_secret: "j0Jo1qUWWZs1wsv6iLiJAbXC",
+});
 
 // Auth Status Endpoint
 app.get("/auth/status", (req, res) => {
@@ -1569,54 +1573,341 @@ app.put("/api/products/status/:productId", (req, res) => {
     res.json({ message: "Product status updated successfully" });
   });
 });
-app.post("/api/orders", upload.single("image"), (req, res) => {
+
+app.post("/request-business-category", (req, res) => {
   const {
-    email,
-    product_id,
-    quantity,
-    total_amount,
-    max_characters,
-    text,
-    customization_description,
+    profile_id,
+    requested_business_type,
+    requested_category,
+    requested_subcategory,
   } = req.body;
-  const image = req.file ? req.file.path : null;
 
-  // Insert into orders table first
-  const orderSql =
-    "INSERT INTO orders (email, product_id, quantity, total_amount) VALUES (?, ?, ?, ?)";
-  const orderValues = [email, product_id, quantity, total_amount];
+  if (!profile_id) {
+    return res.status(400).json({ message: "Profile ID is required" });
+  }
 
-  db.query(orderSql, orderValues, (orderErr, orderResult) => {
-    if (orderErr) return res.status(500).json({ error: orderErr.message });
+  const query = `
+    INSERT INTO business_category_requests 
+    (profile_id, requested_business_type, requested_category, requested_subcategory) 
+    VALUES (?, ?, ?, ?)`;
 
-    const order_id = orderResult.insertId; // Get the newly created order ID
+  db.query(
+    query,
+    [
+      profile_id,
+      requested_business_type,
+      requested_category,
+      requested_subcategory,
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("Error inserting request:", err);
+        return res.status(500).json({ message: "Error submitting request" });
+      }
+      res.status(201).json({
+        message: "Request submitted successfully",
+        requestId: result.insertId,
+      });
+    }
+  );
+});
+app.get("/business-category-requests", (req, res) => {
+  const query = `
+    SELECT r.request_id, u.email, b.type_name AS business_type, 
+           r.requested_business_type, r.requested_category, r.requested_subcategory, 
+           r.status, r.created_at
+    FROM business_category_requests r
+    JOIN business_profile bp ON r.profile_id = bp.profile_id
+    JOIN tbl_users u ON bp.email = u.email
+    JOIN business_types b ON bp.business_id = b.business_id
+    WHERE r.status = 'pending'`;
 
-    // Insert into customization_details table
-    const customizationSql =
-      "INSERT INTO customization_details (order_id, max_characters, text, image, customization_description) VALUES (?, ?, ?, ?, ?)";
-    const customizationValues = [
-      order_id,
-      max_characters,
-      text,
-      image,
-      customization_description,
-    ];
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching requests:", err);
+      return res.status(500).json({ message: "Error fetching requests" });
+    }
+    res.json(results);
+  });
+});
+app.put("/business-category-requests/approve/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query(
+      "UPDATE business_category_requests SET status = 'approved' WHERE request_id = ?",
+      [id]
+    );
+    res.json({ message: "Request approved successfully!" });
+  } catch (error) {
+    console.error("Error approving request:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+// app.post("/api/orders", upload.single("image"), (req, res) => {
+//   const {
+//     email,
+//     product_id,
+//     quantity,
+//     total_amount,
+//     max_characters,
+//     text,
+//     customization_description,
+//   } = req.body;
+//   const image = req.file ? req.file.path : null;
+
+//   // Insert into orders table first
+//   const orderSql =
+//     "INSERT INTO orders (email, product_id, quantity, total_amount) VALUES (?, ?, ?, ?)";
+//   const orderValues = [email, product_id, quantity, total_amount];
+
+//   db.query(orderSql, orderValues, (orderErr, orderResult) => {
+//     if (orderErr) return res.status(500).json({ error: orderErr.message });
+
+//     const order_id = orderResult.insertId; // Get the newly created order ID
+
+//     // Insert into customization_details table
+//     const customizationSql =
+//       "INSERT INTO customization_details (order_id, max_characters, text, image, customization_description) VALUES (?, ?, ?, ?, ?)";
+//     const customizationValues = [
+//       order_id,
+//       max_characters,
+//       text,
+//       image,
+//       customization_description,
+//     ];
+
+//     db.query(
+//       customizationSql,
+//       customizationValues,
+//       (customErr, customResult) => {
+//         if (customErr)
+//           return res.status(500).json({ error: customErr.message });
+
+//         res.status(201).json({
+//           message: "Order placed successfully!",
+//           order_id: order_id,
+//           customization_id: customResult.insertId,
+//         });
+//       }
+//     );
+//   });
+// });
+// app.post("/api/create-order", async (req, res) => {
+//   try {
+//     const { email, product_id, quantity, total_amount } = req.body;
+
+//     if (!email || !product_id || !quantity || !total_amount) {
+//       return res.status(400).json({ error: "Missing required fields" });
+//     }
+
+//     console.log(
+//       "Creating Razorpay order for:",
+//       email,
+//       product_id,
+//       total_amount
+//     );
+
+//     // Create Razorpay order
+//     const options = {
+//       amount: total_amount * 100, // Convert to paise
+//       currency: "INR",
+//       receipt: `order_${Date.now()}`,
+//     };
+
+//     const order = await razorpay.orders.create(options);
+//     console.log("Razorpay order created:", order);
+
+//     // Insert order into MySQL orders table
+//     const sql = `
+//       INSERT INTO orders (order_id, email, product_id, quantity, total_amount, status)
+//       VALUES (?, ?, ?, ?, ?, ?)`;
+
+//     db.query(
+//       sql,
+//       [order.id, email, product_id, quantity, total_amount, "pending"],
+//       (err, result) => {
+//         if (err) {
+//           console.error("Database insert error:", err);
+//           return res.status(500).json({ error: "Database error" });
+//         }
+
+//         console.log("Order saved in database:", result);
+//         res.json(order);
+//       }
+//     );
+//   } catch (error) {
+//     console.error("Error creating order:", error);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+
+// app.post("/api/verify-payment", async (req, res) => {
+//   try {
+//     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+//       req.body;
+
+//     // Generate expected signature
+//     const expectedSignature = crypto
+//       .createHmac("sha256", process.env.RAZORPAY_SECRET)
+//       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+//       .digest("hex");
+
+//     if (expectedSignature === razorpay_signature) {
+//       // Update order in MySQL with payment details
+//       const sql = `
+//         UPDATE orders
+//         SET status = 'success'
+//         WHERE order_id = ?`;
+//       db.query(sql, [razorpay_order_id], (err, result) => {
+//         if (err) throw err;
+//       });
+
+//       res.json({ success: true, message: "Payment verified successfully" });
+//     } else {
+//       res.status(400).json({ error: "Invalid signature" });
+//     }
+//   } catch (error) {
+//     console.error("Error verifying payment:", error);
+//     res.status(500).json({ error: "Payment verification failed" });
+//   }
+// });
+app.post("/api/create-order", async (req, res) => {
+  try {
+    const { email, product_id, quantity, total_amount, max_characters } =
+      req.body;
+
+    if (!email || !product_id || !quantity || !total_amount) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    console.log(
+      "Creating Razorpay order for:",
+      email,
+      product_id,
+      total_amount
+    );
+
+    // Create Razorpay order
+    const options = {
+      amount: Math.round(total_amount * 100), // Convert to paise and ensure integer
+      currency: "INR",
+      receipt: `order_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+    console.log("Razorpay order created:", order);
+
+    // Insert order into MySQL orders table with 'pending' status
+    const sql = `
+      INSERT INTO orders (order_id, email, product_id, quantity, total_amount, status)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
 
     db.query(
-      customizationSql,
-      customizationValues,
-      (customErr, customResult) => {
-        if (customErr)
-          return res.status(500).json({ error: customErr.message });
+      sql,
+      [order.id, email, product_id, quantity, total_amount, "pending"],
+      (err, result) => {
+        if (err) {
+          console.error("Database insert error:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
 
-        res.status(201).json({
-          message: "Order placed successfully!",
-          order_id: order_id,
-          customization_id: customResult.insertId,
-        });
+        console.log("Order saved in database:", result);
+        res.json(order);
       }
     );
-  });
+  } catch (error) {
+    console.error("Error creating order:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Verify payment and update order status
+app.post("/api/verify-payment", async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      customization,
+    } = req.body;
+
+    // Generate expected signature
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (expectedSignature === razorpay_signature) {
+      // Update order in MySQL with payment details and change status to success
+      const updateOrderSql = `
+        UPDATE orders 
+        SET status = 'success', payment_id = ?
+        WHERE order_id = ?
+      `;
+
+      db.query(
+        updateOrderSql,
+        [razorpay_payment_id, razorpay_order_id],
+        (err, result) => {
+          if (err) {
+            console.error("Error updating order status:", err);
+            return res.status(500).json({ error: "Database error" });
+          }
+
+          // Insert customization details if provided
+          if (customization) {
+            const customizationSql = `
+            INSERT INTO customization_details (order_id, text, customization_description)
+            VALUES (?, ?, ?)
+          `;
+
+            db.query(
+              customizationSql,
+              [
+                razorpay_order_id,
+                customization.text || "",
+                customization.customization_details || "",
+              ],
+              (customErr, customResult) => {
+                if (customErr) {
+                  console.error(
+                    "Error saving customization details:",
+                    customErr
+                  );
+                  // Continue anyway as the payment and order were successful
+                }
+
+                res.json({
+                  success: true,
+                  message: "Payment verified successfully",
+                });
+              }
+            );
+          } else {
+            res.json({
+              success: true,
+              message: "Payment verified successfully",
+            });
+          }
+        }
+      );
+    } else {
+      // If signature verification fails
+      const updateOrderSql = `
+        UPDATE orders 
+        SET status = 'failed'
+        WHERE order_id = ?
+      `;
+
+      db.query(updateOrderSql, [razorpay_order_id], () => {
+        res.status(400).json({ error: "Invalid signature" });
+      });
+    }
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    res.status(500).json({ error: "Payment verification failed" });
+  }
 });
 
 app.listen(port, () => {

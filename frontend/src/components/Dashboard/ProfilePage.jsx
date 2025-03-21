@@ -11,6 +11,7 @@ import {
   FiTag,
   FiEdit,
 } from "react-icons/fi";
+import { RiFunctionAddLine } from "react-icons/ri";
 
 const ProfilePage = ({ setUser }) => {
   const [products, setProducts] = useState([]);
@@ -32,6 +33,129 @@ const ProfilePage = ({ setUser }) => {
     setShowModal(true); // Show the modal
   };
 
+  const [requestData, setRequestData] = useState({
+    businessCategory: "",
+    businessTypeId: "",
+    category: "",
+    categoryId: "",
+    subcategory: "",
+  });
+
+  // Update your handleInputChange function:
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+
+    // For select inputs, also update the corresponding ID field
+    if (name === "businessCategory") {
+      // Find the selected business type
+      const selectedBT = businessTypes.find(
+        (bt) => bt.business_id === parseInt(value)
+      );
+
+      if (selectedBT) {
+        // If selecting from existing business types
+        setRequestData({
+          ...requestData,
+          businessCategory: selectedBT.type_name,
+          businessTypeId: value, // Store the ID as a string
+        });
+
+        // Fetch categories for this business type
+        axios
+          .get(`http://localhost:5000/api/categories?business_id=${value}`)
+          .then((response) => {
+            let categoriesData = Array.isArray(response.data)
+              ? response.data
+              : response.data && typeof response.data === "object"
+              ? response.data.data || []
+              : [];
+            setCategories(categoriesData);
+          })
+          .catch((error) => {
+            console.error("Error fetching categories:", error);
+            setCategories([]);
+          });
+      } else {
+        // For manually entered business type
+        setRequestData({
+          ...requestData,
+          businessCategory: value,
+          businessTypeId: "",
+          categoryId: "", // Reset category ID when business type changes
+          category: "", // Reset category when business type changes
+        });
+        setCategories([]);
+      }
+    } else if (name === "category" && requestData.businessTypeId) {
+      // For category selection
+      const selectedCat = categories.find(
+        (cat) => cat.category_id === parseInt(value)
+      );
+
+      if (selectedCat) {
+        setRequestData({
+          ...requestData,
+          category: selectedCat.category_name,
+          categoryId: value,
+        });
+      } else {
+        setRequestData({
+          ...requestData,
+          category: value,
+          categoryId: "",
+        });
+      }
+    } else {
+      // For other inputs
+      setRequestData({ ...requestData, [name]: value });
+    }
+  };
+  const handleRequest = () => {
+    setShowModal(true);
+  };
+
+  // Update handleSubmitRequest to use the IDs if available
+  const handleSubmitRequest = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:5000/request-business-category",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            profile_id: user?.id || 1, // Use user ID if available
+            requested_business_type:
+              requestData.businessTypeId || requestData.businessCategory,
+            requested_category: requestData.categoryId || requestData.category,
+            requested_subcategory: requestData.subcategory,
+            is_new_business_type: !requestData.businessTypeId,
+            is_new_category: !requestData.categoryId,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Request sent successfully!");
+        setShowModal(false);
+        setRequestData({
+          businessCategory: "",
+          businessTypeId: "",
+          category: "",
+          categoryId: "",
+          subcategory: "",
+        });
+      } else {
+        throw new Error(data.message || "Failed to send request");
+      }
+    } catch (error) {
+      console.error("Error sending request:", error);
+      alert("Failed to send request.");
+    }
+  };
   // Updated handleUpdateProduct function with authentication
   const handleUpdateProduct = async () => {
     // Validate inputs
@@ -185,16 +309,34 @@ const ProfilePage = ({ setUser }) => {
   }, []);
 
   // Fetch categories when a business type is selected
+
+  // For fetching categories
   useEffect(() => {
     if (selectedBusinessType) {
+      console.log(
+        "Fetching categories for business type:",
+        selectedBusinessType
+      );
+
       axios
         .get(
           `http://localhost:5000/api/categories?business_id=${selectedBusinessType}`
         )
         .then((response) => {
-          console.log("Categories:", response.data);
-          // Extract the data array from the response
-          const categoriesData = response.data.data || [];
+          console.log("Raw Categories Response:", response);
+
+          // Handle different response structures
+          let categoriesData;
+          if (Array.isArray(response.data)) {
+            categoriesData = response.data;
+          } else if (response.data && typeof response.data === "object") {
+            categoriesData = response.data.data || [];
+          } else {
+            categoriesData = [];
+            console.error("Unexpected response format:", response.data);
+          }
+
+          console.log("Processed Categories Data:", categoriesData);
           setCategories(categoriesData);
 
           // Reset subcategory-related selections
@@ -203,7 +345,14 @@ const ProfilePage = ({ setUser }) => {
           setPriceRange({ min: null, max: null });
           setPriceRangeError("");
         })
-        .catch((error) => console.error("Error fetching categories:", error));
+        .catch((error) => {
+          console.error("Error fetching categories:", error);
+          if (error.response) {
+            console.log("Error status:", error.response.status);
+            console.log("Error data:", error.response.data);
+          }
+          setCategories([]);
+        });
     } else {
       setCategories([]);
       setSelectedCategory("");
@@ -212,26 +361,46 @@ const ProfilePage = ({ setUser }) => {
       setPriceRangeError("");
     }
   }, [selectedBusinessType]);
-
   // Fetch subcategories when a category is selected
   useEffect(() => {
     if (selectedCategory) {
+      console.log("Fetching subcategories for category:", selectedCategory);
+
       axios
         .get(
           `http://localhost:5000/api/subcategories?category_id=${selectedCategory}`
         )
         .then((response) => {
-          console.log("Subcategories:", response.data);
-          // Extract the data array from the response
-          const subcategoriesData = response.data.data || [];
+          console.log("Raw Subcategories Response:", response);
+
+          // Handle different response structures
+          let subcategoriesData;
+          if (Array.isArray(response.data)) {
+            subcategoriesData = response.data;
+          } else if (response.data && typeof response.data === "object") {
+            subcategoriesData = response.data.data || [];
+          } else {
+            subcategoriesData = [];
+            console.error(
+              "Unexpected subcategories response format:",
+              response.data
+            );
+          }
+
+          console.log("Processed Subcategories Data:", subcategoriesData);
           setSubcategories(subcategoriesData);
           setSelectedSubcategory("");
           setPriceRange({ min: null, max: null });
           setPriceRangeError("");
         })
-        .catch((error) =>
-          console.error("Error fetching subcategories:", error)
-        );
+        .catch((error) => {
+          console.error("Error fetching subcategories:", error);
+          if (error.response) {
+            console.log("Error status:", error.response.status);
+            console.log("Error data:", error.response.data);
+          }
+          setSubcategories([]);
+        });
     } else {
       setSubcategories([]);
       setSelectedSubcategory("");
@@ -239,7 +408,6 @@ const ProfilePage = ({ setUser }) => {
       setPriceRangeError("");
     }
   }, [selectedCategory]);
-
   const handleProductChange = (e) => {
     const { name, value } = e.target;
     setNewProduct((prev) => ({
@@ -486,6 +654,7 @@ const ProfilePage = ({ setUser }) => {
                 </div>
 
                 {/* Category Select */}
+
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Category
@@ -493,7 +662,7 @@ const ProfilePage = ({ setUser }) => {
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/10 disabled:bg-gray-100 disabled:text-gray-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/10"
                     required
                     disabled={!selectedBusinessType}
                   >
@@ -756,6 +925,134 @@ const ProfilePage = ({ setUser }) => {
                 <span className="font-medium">Add Product</span>
               </button>
             </form>
+            <button
+              onClick={handleRequest}
+              className="mt-4 mr-2 text-primary px-3 py-1 rounded-lg bg-primary/10 flex items-center"
+            >
+              Request Category{" "}
+              <RiFunctionAddLine className="ml-2 text-primary" />
+            </button>
+
+            {/* Request Category Modal */}
+            {showModal && (
+              <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+                <div className="bg-white p-5 rounded-lg shadow-lg w-96 max-w-full max-h-[90vh] overflow-y-auto">
+                  <h2 className="text-lg font-semibold mb-3">
+                    Request New Category
+                  </h2>
+
+                  {/* Business Type Selection */}
+                  {/* Business Type Selection */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Business Type
+                    </label>
+                    <div className="flex">
+                      <select
+                        name="businessCategory"
+                        value={requestData.businessTypeId} // Use businessTypeId for the select value
+                        onChange={handleInputChange}
+                        className="w-full p-2 border rounded mr-2"
+                      >
+                        <option value="">Select Existing or Add New</option>
+                        {businessTypes.map((bt) => (
+                          <option key={bt.business_id} value={bt.business_id}>
+                            {bt.type_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {!requestData.businessTypeId && (
+                      <input
+                        type="text"
+                        name="businessCategory"
+                        value={requestData.businessCategory}
+                        onChange={handleInputChange}
+                        className="w-full p-2 border rounded mt-2"
+                        placeholder="Enter new business type"
+                      />
+                    )}
+                  </div>
+
+                  {/* Category Selection - Only show dropdown if business type is selected */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category
+                    </label>
+                    {requestData.businessTypeId && (
+                      <div className="flex">
+                        <select
+                          name="category"
+                          value={requestData.categoryId}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded mr-2"
+                        >
+                          <option value="">Select Existing or Add New</option>
+                          {categories
+                            .filter(
+                              (cat) =>
+                                cat.business_id ===
+                                parseInt(requestData.businessTypeId)
+                            )
+                            .map((cat) => (
+                              <option
+                                key={cat.category_id}
+                                value={cat.category_id}
+                              >
+                                {cat.category_name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
+                    {(!requestData.categoryId ||
+                      !requestData.businessTypeId) && (
+                      <input
+                        type="text"
+                        name="category"
+                        value={requestData.category}
+                        onChange={handleInputChange}
+                        className="w-full p-2 border rounded mt-2"
+                        placeholder="Enter new category"
+                      />
+                    )}
+                  </div>
+
+                  {/* Subcategory */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Subcategory
+                    </label>
+                    <input
+                      type="text"
+                      name="subcategory"
+                      value={requestData.subcategory}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border rounded"
+                      required
+                      placeholder="Enter new subcategory"
+                    />
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      className="px-4 py-2 bg-gray-300 rounded mr-2 hover:bg-gray-400 transition"
+                      onClick={() => setShowModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition flex items-center"
+                      onClick={handleSubmitRequest}
+                    >
+                      <RiFunctionAddLine className="mr-2" />
+                      Submit Request
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           {/* Product List */}
           <div>

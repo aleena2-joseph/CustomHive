@@ -170,53 +170,91 @@ const Orders = ({ setUser: setGlobalUser }) => {
     setFormData({ ...formData, image: e.target.files[0] });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const handlePayment = async () => {
     if (!user) {
-      alert("Please log in to place an order.");
+      alert("Please log in to proceed with the payment.");
       navigate("/login");
       return;
     }
 
-    if (!product) {
-      alert("Product information not available. Please try again.");
-      return;
-    }
-
-    const formDataToSend = new FormData();
-    formDataToSend.append("email", user.email);
-    formDataToSend.append("product_id", product.Product_id);
-    formDataToSend.append("quantity", formData.quantity);
-    formDataToSend.append("total_amount", totalPrice);
-
-    // Only add text if text customization is needed
-    if (product.isTextNeeded) {
-      formDataToSend.append("text", formData.text);
-      formDataToSend.append("text_charges", textSurcharge); // Add text charges
-    }
-
-    // Only add image if image customization is needed
-    if (product.isImageNeeded && formData.image) {
-      formDataToSend.append("image", formData.image);
-    }
-
-    formDataToSend.append(
-      "customization_details",
-      formData.customization_details
-    );
-
     try {
-      await axios.post("http://localhost:5000/api/orders", formDataToSend, {
-        headers: { "Content-Type": "multipart/form-data" },
-        withCredentials: true,
-      });
+      // First, prepare order data
+      const orderData = {
+        email: user.email,
+        product_id: product.Product_id,
+        quantity: formData.quantity,
+        total_amount: totalPrice,
+        max_characters: product.max_characters || 50,
+      };
 
-      alert("Order placed successfully!");
-      navigate("/my-orders");
+      // Step 1: Create an order on the backend
+      const orderResponse = await axios.post(
+        "http://localhost:5000/api/create-order",
+        orderData
+      );
+
+      const { id: order_id, currency, amount } = orderResponse.data;
+
+      // Step 2: Open Razorpay checkout
+      const options = {
+        key: "rzp_test_9QpKV5f6tjujcT", // Replace with your Razorpay Key ID
+        amount: amount,
+        currency: currency,
+        name: "CustomHive",
+        description: "Payment for your custom product",
+        image: logo,
+        order_id: order_id,
+        handler: async function (response) {
+          try {
+            // Step 3: Verify payment on the backend
+            axios.post("http://localhost:5000/api/verify-payment", {
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+              // Send customization details with payment verification
+              customization: {
+                text: formData.text,
+                customization_details: formData.customization_details,
+              },
+            });
+
+            // Step 4: If verification successful, upload image if exists
+            if (formData.image && product.isImageNeeded) {
+              const imageFormData = new FormData();
+              imageFormData.append("image", formData.image);
+              imageFormData.append("order_id", response.razorpay_order_id);
+
+              await axios.post(
+                "http://localhost:5000/api/upload-customization-image",
+                imageFormData,
+                {
+                  headers: { "Content-Type": "multipart/form-data" },
+                }
+              );
+            }
+
+            alert("Payment successful! Your order has been placed.");
+            navigate("/my-orders");
+          } catch (error) {
+            console.error("Error during payment verification:", error);
+            alert("Payment verification failed. Please contact support.");
+          }
+        },
+        prefill: {
+          name: user.name,
+          email: user.email,
+          contact: user.phone || "",
+        },
+        theme: {
+          color: "#3399cc",
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
     } catch (error) {
-      console.error("Error placing order:", error.response?.data || error);
-      alert("Error placing order. Please try again.");
+      console.error("Payment error:", error);
+      alert("Error while processing payment. Please try again.");
     }
   };
 
@@ -359,7 +397,7 @@ const Orders = ({ setUser: setGlobalUser }) => {
               Place Your Order
             </h2>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-5">
               <div className="mb-6">
                 <p className="text-gray-700 mb-2">
                   Quantity (1-{MAX_QUANTITY}):
@@ -488,13 +526,12 @@ const Orders = ({ setUser: setGlobalUser }) => {
               )}
 
               <button
-                type="submit"
-                className="bg-primary text-white py-3 rounded-md w-full hover:bg-primary/90 transition-colors font-medium text-lg"
-                disabled={!product}
+                onClick={handlePayment}
+                className="bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition-all w-full"
               >
                 Proceed to Payment
               </button>
-            </form>
+            </div>
           </div>
         </div>
       </div>

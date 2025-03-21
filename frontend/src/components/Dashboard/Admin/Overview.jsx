@@ -11,42 +11,52 @@ const Overview = () => {
   const [ownerCount, setOwnerCount] = useState(0);
   const [productCount, setProductCount] = useState(0);
   const [user, setUser] = useState(null);
+  const [requests, setRequests] = useState([]);
 
   useEffect(() => {
-    // Fetch session data
-    axios
-      .get("http://localhost:5000/api/session", { withCredentials: true })
-      .then((res) => setUser(res.data.user || null))
-      .catch((err) => console.error("Error fetching session:", err));
-
-    // Fetch total users (excluding admin)
-    axios
-      .get("http://localhost:5000/users")
-      .then((res) => setTotalUsers(res.data.length || 0))
-      .catch((err) => console.error("Error fetching users:", err));
-
-    // Fetch business categories
-    axios
-      .get("http://localhost:5000/api/business-types")
-      .then((res) => setCategories(res.data || []))
-      .catch((err) => console.error("Error fetching categories:", err));
-
-    // Fetch total owners count
-    axios
-      .get("http://localhost:5000/api/business-profile/owners-count")
-      .then((res) => setOwnerCount(res.data.ownerCount || 0))
-      .catch((err) => console.error("Error fetching owner count:", err));
-
-    // Fetch total product count
-    axios
-      .get("http://localhost:5000/api/products/count")
-      .then((res) => setProductCount(res.data.totalProducts || 0))
-      .catch((err) => console.error("Error fetching Products count:", err));
+    // Fetch all data in parallel
+    Promise.all([
+      axios.get("http://localhost:5000/api/session", { withCredentials: true }),
+      axios.get("http://localhost:5000/users"),
+      axios.get("http://localhost:5000/api/business-types"),
+      axios.get("http://localhost:5000/api/business-profile/owners-count"),
+      axios.get("http://localhost:5000/api/products/count"),
+      axios.get("http://localhost:5000/business-category-requests"),
+    ])
+      .then(
+        ([
+          sessionRes,
+          usersRes,
+          categoriesRes,
+          ownersRes,
+          productsRes,
+          requestsRes,
+        ]) => {
+          setUser(sessionRes.data.user || null);
+          setTotalUsers(usersRes.data.length || 0);
+          setCategories(categoriesRes.data || []);
+          setOwnerCount(ownersRes.data.ownerCount || 0);
+          setProductCount(productsRes.data.totalProducts || 0);
+          setRequests(requestsRes.data || []);
+        }
+      )
+      .catch((err) => console.error("Error fetching data:", err));
   }, []);
 
+  // Approve category request
+  const handleApprove = async (id) => {
+    try {
+      const response = await axios.put(
+        `http://localhost:5000/business-category-requests/approve/${id}`
+      );
+      console.log("Request approved:", response.data);
+    } catch (error) {
+      console.error("Error approving request:", error);
+    }
+  };
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Navbar at the top */}
+      {/* Navbar */}
       <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div>
@@ -67,17 +77,18 @@ const Overview = () => {
         </div>
       </div>
 
-      {/* Main Content: Sidebar on the left, Overview on the right */}
+      {/* Main Content */}
       <div className="flex flex-grow">
-        {/* Sidebar (fixed width) */}
+        {/* Sidebar */}
         <div className="w-64 bg-gray-100 min-h-screen shadow-md">
           <Sidebar setUser={setUser} />
         </div>
 
-        {/* Overview Section (takes remaining space) */}
+        {/* Overview Section */}
         <div className="flex-1 p-6">
           <h2 className="text-3xl font-bold mb-6 text-gray-700">Overview</h2>
 
+          {/* Stats Cards */}
           <div className="grid grid-cols-3 gap-6 mb-8">
             <div className="bg-blue-500 text-white p-6 rounded-lg shadow-md">
               <h3 className="text-xl font-semibold">Total Users</h3>
@@ -98,9 +109,9 @@ const Overview = () => {
             Business Categories
           </h3>
           <div className="grid grid-cols-3 gap-6">
-            {categories.map((category) => (
+            {categories.map((category, index) => (
               <div
-                key={category.business_id}
+                key={category.business_id || index}
                 className="bg-white shadow-md rounded-lg p-6 text-center border border-gray-300"
               >
                 <h4 className="text-lg font-bold text-gray-800">
@@ -108,6 +119,42 @@ const Overview = () => {
                 </h4>
               </div>
             ))}
+          </div>
+
+          {/* Pending Category Requests */}
+          <h3 className="text-2xl font-semibold mb-4 text-gray-700 mt-8">
+            Pending Category Requests
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            {requests.length > 0 ? (
+              requests.map((req) => (
+                <div
+                  key={req.request_id}
+                  className="bg-white shadow-md rounded-lg p-4 border border-gray-300"
+                >
+                  <p className="text-lg font-bold">
+                    {req.requested_category
+                      ? `Category: ${req.requested_category}`
+                      : req.requested_business_type
+                      ? `Business Type: ${req.requested_business_type}`
+                      : req.requested_subcategory
+                      ? `Subcategory: ${req.requested_subcategory}`
+                      : "Request"}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Requested by: {req.email}
+                  </p>
+                  <button
+                    className="mt-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
+                    onClick={() => handleApprove(req.request_id)}
+                  >
+                    Approve
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500">No pending requests</p>
+            )}
           </div>
         </div>
       </div>
