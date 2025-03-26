@@ -17,6 +17,9 @@ import SubCategory from "./components/Dashboard/Admin/Subcategory";
 import ProfilePage from "./components/Dashboard/ProfilePage";
 import ViewDetails from "./components/Dashboard/ViewDetails";
 import Orders from "./components/Dashboard/Orders";
+import CartCheckout from "./components/Dashboard/CartCheckout";
+import OrderSuccess from "./components/Dashboard/OrderSuccess";
+import ViewOrders from "./components/Dashboard/ViewOrders";
 const App = () => {
   const [user, setUser] = useState(() => {
     // Ensure user is retrieved as an object
@@ -96,8 +99,20 @@ const App = () => {
           element={<ViewDetails setUser={setUser} />}
         />
         <Route
+          path="/CartCheckout"
+          element={<CartCheckout setUser={setUser} />}
+        />
+        <Route
+          path="order-success"
+          element={<OrderSuccess setUser={setUser} />}
+        />
+        <Route
           path="/view_details"
           element={<ViewDetails setUser={setUser} />}
+        />
+        <Route
+          path="/view-orders"
+          element={<ViewOrders userEmail={user?.email} setUser={setUser} />}
         />
       </Routes>
     </BrowserRouter>

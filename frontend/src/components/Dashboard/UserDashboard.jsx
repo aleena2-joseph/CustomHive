@@ -196,9 +196,9 @@ const UserDashboard = ({ user, setUser }) => {
           {/* Aligning the elements horizontally */}
           <div className="flex items-center gap-6">
             {/* Cart Icon */}
-            <a href="/cart">
+            <Link to="/cart">
               <FaCartShopping className="text-3xl text-primary" />
-            </a>
+            </Link>
 
             {/* User Profile Dropdown */}
             <div className="relative flex items-center gap-2">
@@ -224,7 +224,7 @@ const UserDashboard = ({ user, setUser }) => {
                     </li>
                     <li>
                       <a
-                        href="/orders"
+                        href="/view-orders"
                         className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                       >
                         My Orders

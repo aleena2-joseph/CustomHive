@@ -529,24 +529,23 @@ const ProfilePage = ({ setUser }) => {
     }
   };
 
-  // Toggle product status
   const toggleProductStatus = async (id, currentStatus) => {
     try {
-      await axios.put(
-        `http://localhost:5000/api/products/${id}`,
-        {
-          status: !currentStatus,
-        },
+      const response = await axios.put(
+        `http://localhost:5000/api/products/status/${id}`,
+        { status: !currentStatus ? 1 : 0 }, // Ensure correct format
         { withCredentials: true }
       );
 
-      setProducts(
-        products.map((product) =>
-          product.Product_id === id
-            ? { ...product, Status: !currentStatus }
-            : product
-        )
-      );
+      if (response.status === 200) {
+        setProducts((prevProducts) =>
+          prevProducts.map((product) =>
+            product.Product_id === id
+              ? { ...product, Status: !currentStatus }
+              : product
+          )
+        );
+      }
     } catch (error) {
       console.error("Error updating product status:", error);
     }
@@ -830,7 +829,9 @@ const ProfilePage = ({ setUser }) => {
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       <svg
-                        className="w-8 h-8 mb-4 text-gray-500"
+                        width="32"
+                        height="32"
+                        className="mb-4 text-gray-500"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -843,6 +844,7 @@ const ProfilePage = ({ setUser }) => {
                           d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                         />
                       </svg>
+
                       <p className="mb-2 text-sm text-gray-500">
                         <span className="font-semibold">Click to upload</span>{" "}
                         or drag and drop
@@ -1221,11 +1223,12 @@ const ProfilePage = ({ setUser }) => {
                           )}
 
                           <button
-                            onClick={() =>
-                              toggleProductStatus(
-                                product.Product_id,
-                                product.Status
-                              )
+                            onClick={
+                              () =>
+                                toggleProductStatus(
+                                  product.Product_id,
+                                  product.Status
+                                ) // Ensure correct case
                             }
                             className={`px-4 py-2 rounded-lg transition ${
                               product.Status

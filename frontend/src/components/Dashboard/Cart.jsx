@@ -113,7 +113,7 @@ const Cart = ({ setUser: setGlobalUser }) => {
 
   const handleCheckout = () => {
     // Implement checkout process here
-    alert("Checkout feature will be implemented soon!");
+    navigate("/CartCheckout");
   };
 
   const handleLogout = async () => {
@@ -348,6 +348,7 @@ const Cart = ({ setUser: setGlobalUser }) => {
                       </div>
                     </div>
                   </div>
+
                   <button
                     onClick={handleCheckout}
                     className="w-full bg-primary text-white py-3 px-4 rounded-md mt-6 hover:bg-primary/80 transition-colors"

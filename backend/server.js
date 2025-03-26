@@ -15,6 +15,7 @@ const path = require("path");
 const Razorpay = require("razorpay");
 const app = express();
 const port = process.env.PORT || 5000;
+const crypto = require("crypto");
 
 app.use(
   session({
@@ -349,79 +350,6 @@ app.put("/update_status/:email", (req, res) => {
   });
 });
 
-// Login route
-// app.post("/login", async (req, res) => {
-//   const { email, password } = req.body;
-
-//   if (!email || !password) {
-//     return res.status(400).json({
-//       success: false,
-//       message: "Please provide both email and password",
-//     });
-//   }
-
-//   try {
-//     const sql = "SELECT * FROM tbl_users WHERE email = ? AND status = '1'";
-
-//     db.query(sql, [email], async (err, results) => {
-//       if (err) {
-//         console.error("Database error:", err);
-//         return res.status(500).json({
-//           success: false,
-//           message: "An error occurred during login",
-//         });
-//       }
-
-//       if (results.length === 0) {
-//         return res.status(401).json({
-//           success: false,
-//           message: "Invalid email or password",
-//         });
-//       }
-
-//       const user = results[0];
-
-//       // Compare hashed password with user input
-//       const passwordMatch = await bcrypt.compare(password, user.password);
-//       if (!passwordMatch) {
-//         return res.status(401).json({
-//           success: false,
-//           message: "Invalid email or password",
-//         });
-//       }
-
-//       // Generate JWT token
-//       const token = jwt.sign(
-//         {
-//           email: user.email,
-//           role_id: user.role_id,
-//         },
-//         process.env.JWT_SECRET || "your-secret-key",
-//         { expiresIn: "24h" }
-//       );
-
-//       const redirectUrl = getRedirectUrl(parseInt(user.role_id));
-
-//       return res.json({
-//         success: true,
-//         message: "Login successful",
-//         token,
-//         user: {
-//           name: user.name,
-//           email: user.email,
-//           role_id: parseInt(user.role_id),
-//         },
-//         redirectUrl,
-//       });
-//     });
-//   } catch (error) {
-//     console.error("Login error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "An error occurred during login",
-//     });
-//   }
-// });
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -846,44 +774,6 @@ app.get("/api/categories", (req, res) => {
     res.json({ data: results });
   });
 });
-
-// app.get("/api/categories", (req, res) => {
-//   const { business_id, category_ids } = req.query; // Get business_id and selected categories
-
-//   let sql = `
-//     SELECT c.category_id, c.category_name, c.description, b.business_id, b.type_name
-//     FROM categories c
-//     JOIN business_types b ON c.business_id = b.business_id
-//   `;
-
-//   let params = [];
-//   let conditions = [];
-
-//   if (business_id) {
-//     conditions.push("c.business_id = ?");
-//     params.push(business_id);
-//   }
-
-//   if (category_ids) {
-//     const categoryArray = category_ids.split(",").map(Number); // Convert to array of numbers
-//     const placeholders = categoryArray.map(() => "?").join(",");
-//     conditions.push(`c.category_id IN (${placeholders})`);
-//     params.push(...categoryArray);
-//   }
-
-//   // Add WHERE clause only if conditions exist
-//   if (conditions.length) {
-//     sql += " WHERE " + conditions.join(" AND ");
-//   }
-
-//   db.query(sql, params, (err, results) => {
-//     if (err) {
-//       console.error("Database Error:", err);
-//       return res.status(500).json({ message: "Internal Server Error" });
-//     }
-//     res.json({ data: results });
-//   });
-// });
 
 app.put("/api/update-category/:id", (req, res) => {
   const { id } = req.params;
@@ -1310,29 +1200,6 @@ app.get("/api/ord_prod/:id", (req, res) => {
   });
 });
 
-//   const sql = `
-//     SELECT p.*, u.name AS seller_name,
-//            MAX(bt.type_name) AS business_type,
-//            c.category_name,
-//            s.subcategory_name
-//     FROM products p
-//     LEFT JOIN tbl_users u ON p.email = u.email
-//     LEFT JOIN subcategories s ON p.Subcategory_id = s.subcategory_id
-//     LEFT JOIN categories c ON s.category_id = c.category_id
-//     LEFT JOIN business_profile bp ON p.email = bp.email
-//     LEFT JOIN business_types bt ON bp.business_id = bt.business_id
-//     GROUP BY p.Product_id, u.name, c.category_name, s.subcategory_name
-//     ORDER BY p.Product_id DESC
-//   `;
-
-//   db.query(sql, (err, results) => {
-//     if (err) {
-//       console.error("Database error:", err);
-//       return res.status(500).json({ error: "Database error" });
-//     }
-//     res.json(results);
-//   });
-// });
 app.get("/api/all-products", (req, res) => {
   const sql = `
     SELECT p.*, p.status, u.name AS seller_name, 
@@ -1549,17 +1416,16 @@ app.put("/api/sellers/status/:profileId", (req, res) => {
   });
 });
 
-// Update product status
 app.put("/api/products/status/:productId", (req, res) => {
+  console.log("Received body:", req.body); // Debugging line
+
   const { productId } = req.params;
-  const { status } = req.body;
+  let { status } = req.body;
 
-  if (status !== 0 && status !== 1) {
-    return res.status(400).json({ error: "Invalid status value" });
-  }
+  // Convert string "0"/"1" to integer if needed
+  status = status === true || status === "1" || status === 1 ? 1 : 0;
 
-  const sql = "UPDATE products SET status = ? WHERE id = ?";
-
+  const sql = "UPDATE products SET Status = ? WHERE Product_id = ?";
   db.query(sql, [status, productId], (err, result) => {
     if (err) {
       console.error("Database error:", err);
@@ -1643,177 +1509,87 @@ app.put("/business-category-requests/approve/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-// app.post("/api/orders", upload.single("image"), (req, res) => {
-//   const {
-//     email,
-//     product_id,
-//     quantity,
-//     total_amount,
-//     max_characters,
-//     text,
-//     customization_description,
-//   } = req.body;
-//   const image = req.file ? req.file.path : null;
 
-//   // Insert into orders table first
-//   const orderSql =
-//     "INSERT INTO orders (email, product_id, quantity, total_amount) VALUES (?, ?, ?, ?)";
-//   const orderValues = [email, product_id, quantity, total_amount];
-
-//   db.query(orderSql, orderValues, (orderErr, orderResult) => {
-//     if (orderErr) return res.status(500).json({ error: orderErr.message });
-
-//     const order_id = orderResult.insertId; // Get the newly created order ID
-
-//     // Insert into customization_details table
-//     const customizationSql =
-//       "INSERT INTO customization_details (order_id, max_characters, text, image, customization_description) VALUES (?, ?, ?, ?, ?)";
-//     const customizationValues = [
-//       order_id,
-//       max_characters,
-//       text,
-//       image,
-//       customization_description,
-//     ];
-
-//     db.query(
-//       customizationSql,
-//       customizationValues,
-//       (customErr, customResult) => {
-//         if (customErr)
-//           return res.status(500).json({ error: customErr.message });
-
-//         res.status(201).json({
-//           message: "Order placed successfully!",
-//           order_id: order_id,
-//           customization_id: customResult.insertId,
-//         });
-//       }
-//     );
-//   });
-// });
-// app.post("/api/create-order", async (req, res) => {
-//   try {
-//     const { email, product_id, quantity, total_amount } = req.body;
-
-//     if (!email || !product_id || !quantity || !total_amount) {
-//       return res.status(400).json({ error: "Missing required fields" });
-//     }
-
-//     console.log(
-//       "Creating Razorpay order for:",
-//       email,
-//       product_id,
-//       total_amount
-//     );
-
-//     // Create Razorpay order
-//     const options = {
-//       amount: total_amount * 100, // Convert to paise
-//       currency: "INR",
-//       receipt: `order_${Date.now()}`,
-//     };
-
-//     const order = await razorpay.orders.create(options);
-//     console.log("Razorpay order created:", order);
-
-//     // Insert order into MySQL orders table
-//     const sql = `
-//       INSERT INTO orders (order_id, email, product_id, quantity, total_amount, status)
-//       VALUES (?, ?, ?, ?, ?, ?)`;
-
-//     db.query(
-//       sql,
-//       [order.id, email, product_id, quantity, total_amount, "pending"],
-//       (err, result) => {
-//         if (err) {
-//           console.error("Database insert error:", err);
-//           return res.status(500).json({ error: "Database error" });
-//         }
-
-//         console.log("Order saved in database:", result);
-//         res.json(order);
-//       }
-//     );
-//   } catch (error) {
-//     console.error("Error creating order:", error);
-//     res.status(500).json({ error: "Server error" });
-//   }
-// });
-
-// app.post("/api/verify-payment", async (req, res) => {
-//   try {
-//     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-//       req.body;
-
-//     // Generate expected signature
-//     const expectedSignature = crypto
-//       .createHmac("sha256", process.env.RAZORPAY_SECRET)
-//       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-//       .digest("hex");
-
-//     if (expectedSignature === razorpay_signature) {
-//       // Update order in MySQL with payment details
-//       const sql = `
-//         UPDATE orders
-//         SET status = 'success'
-//         WHERE order_id = ?`;
-//       db.query(sql, [razorpay_order_id], (err, result) => {
-//         if (err) throw err;
-//       });
-
-//       res.json({ success: true, message: "Payment verified successfully" });
-//     } else {
-//       res.status(400).json({ error: "Invalid signature" });
-//     }
-//   } catch (error) {
-//     console.error("Error verifying payment:", error);
-//     res.status(500).json({ error: "Payment verification failed" });
-//   }
-// });
 app.post("/api/create-order", async (req, res) => {
   try {
-    const { email, product_id, quantity, total_amount, max_characters } =
-      req.body;
+    const { email, cartItems, total_amount } = req.body; // `cartItems` contains [{ product_id, quantity, max_characters, text, customization_description }]
 
-    if (!email || !product_id || !quantity || !total_amount) {
+    if (!email || !cartItems || cartItems.length === 0 || !total_amount) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    console.log(
-      "Creating Razorpay order for:",
-      email,
-      product_id,
-      total_amount
-    );
+    console.log("Creating Razorpay order for:", email, total_amount);
 
-    // Create Razorpay order
+    // Create Razorpay Order
     const options = {
-      amount: Math.round(total_amount * 100), // Convert to paise and ensure integer
+      amount: Math.round(total_amount * 100), // Convert to paise
       currency: "INR",
       receipt: `order_${Date.now()}`,
     };
 
-    const order = await razorpay.orders.create(options);
-    console.log("Razorpay order created:", order);
+    const razorpayOrder = await razorpay.orders.create(options);
+    console.log("Razorpay order created:", razorpayOrder);
 
-    // Insert order into MySQL orders table with 'pending' status
-    const sql = `
-      INSERT INTO orders (order_id, email, product_id, quantity, total_amount, status)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
-
+    // Insert Order in MySQL - IMPORTANT: Store razorpay_order_id separately
+    const orderSql = `INSERT INTO orders (razorpay_order_id, email, total_amount, status) VALUES (?, ?, ?, ?)`;
     db.query(
-      sql,
-      [order.id, email, product_id, quantity, total_amount, "pending"],
+      orderSql,
+      [razorpayOrder.id, email, total_amount, "pending"],
       (err, result) => {
         if (err) {
           console.error("Database insert error:", err);
           return res.status(500).json({ error: "Database error" });
         }
 
-        console.log("Order saved in database:", result);
-        res.json(order);
+        // Get the auto-generated order_id
+        const mysqlOrderId = result.insertId;
+        console.log("Order saved in database with ID:", mysqlOrderId);
+
+        // Insert Products into `order_items` Table
+        const orderItemsSql = `INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ?`;
+        const orderItemsValues = cartItems.map((item) => [
+          mysqlOrderId, // Use MySQL auto-generated ID here
+          item.product_id,
+          item.quantity,
+          // You should fetch the product price here or pass it from frontend
+          (total_amount / cartItems.reduce((acc, i) => acc + i.quantity, 0)) *
+            item.quantity,
+        ]);
+
+        db.query(orderItemsSql, [orderItemsValues], (orderErr) => {
+          if (orderErr) {
+            console.error("Error saving order items:", orderErr);
+            return res.status(500).json({ error: "Database error" });
+          }
+
+          console.log("Order items saved successfully");
+
+          // Insert Customizations (if any)
+          const customizationItems = cartItems.filter(
+            (item) => item.text || item.customization_description
+          );
+
+          if (customizationItems.length > 0) {
+            const customizationSql = `INSERT INTO customization_details (order_id, max_characters, text, customization_description) VALUES ?`;
+            const customizationValues = customizationItems.map((item) => [
+              mysqlOrderId, // Use MySQL auto-generated ID here
+              item.max_characters || null,
+              item.text || "",
+              item.customization_description || "",
+            ]);
+
+            db.query(customizationSql, [customizationValues], (customErr) => {
+              if (customErr) {
+                console.error("Error saving customization details:", customErr);
+                return res.status(500).json({ error: "Database error" });
+              }
+              console.log("Customizations saved successfully");
+            });
+          }
+
+          // Return Razorpay order info to the client
+          res.json(razorpayOrder);
+        });
       }
     );
   } catch (error) {
@@ -1822,87 +1598,44 @@ app.post("/api/create-order", async (req, res) => {
   }
 });
 
-// Verify payment and update order status
 app.post("/api/verify-payment", async (req, res) => {
   try {
-    const {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+      req.body;
+
+    console.log("Verifying payment with:", {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
-      customization,
-    } = req.body;
+    });
 
-    // Generate expected signature
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
+    console.log("Expected signature:", expectedSignature);
+    console.log("Received signature:", razorpay_signature);
+
     if (expectedSignature === razorpay_signature) {
-      // Update order in MySQL with payment details and change status to success
-      const updateOrderSql = `
-        UPDATE orders 
-        SET status = 'success', payment_id = ?
-        WHERE order_id = ?
-      `;
+      const updateOrderSql = `UPDATE orders SET status = 'success' WHERE razorpay_order_id = ?`;
 
+      db.query(updateOrderSql, [razorpay_order_id], (err, result) => {
+        if (err) {
+          console.error("Error updating order status:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
+
+        res.json({ success: true, message: "Payment verified successfully" });
+      });
+    } else {
       db.query(
-        updateOrderSql,
-        [razorpay_payment_id, razorpay_order_id],
-        (err, result) => {
-          if (err) {
-            console.error("Error updating order status:", err);
-            return res.status(500).json({ error: "Database error" });
-          }
-
-          // Insert customization details if provided
-          if (customization) {
-            const customizationSql = `
-            INSERT INTO customization_details (order_id, text, customization_description)
-            VALUES (?, ?, ?)
-          `;
-
-            db.query(
-              customizationSql,
-              [
-                razorpay_order_id,
-                customization.text || "",
-                customization.customization_details || "",
-              ],
-              (customErr, customResult) => {
-                if (customErr) {
-                  console.error(
-                    "Error saving customization details:",
-                    customErr
-                  );
-                  // Continue anyway as the payment and order were successful
-                }
-
-                res.json({
-                  success: true,
-                  message: "Payment verified successfully",
-                });
-              }
-            );
-          } else {
-            res.json({
-              success: true,
-              message: "Payment verified successfully",
-            });
-          }
+        `UPDATE orders SET status = 'failed' WHERE razorpay_order_id = ?`,
+        [razorpay_order_id],
+        () => {
+          res.status(400).json({ error: "Invalid signature" });
         }
       );
-    } else {
-      // If signature verification fails
-      const updateOrderSql = `
-        UPDATE orders 
-        SET status = 'failed'
-        WHERE order_id = ?
-      `;
-
-      db.query(updateOrderSql, [razorpay_order_id], () => {
-        res.status(400).json({ error: "Invalid signature" });
-      });
     }
   } catch (error) {
     console.error("Error verifying payment:", error);
@@ -1910,6 +1643,85 @@ app.post("/api/verify-payment", async (req, res) => {
   }
 });
 
+app.get("/api/orders/:orderId", (req, res) => {
+  const { orderId } = req.params;
+  console.log("Fetching order:", orderId); // Debugging log
+
+  const query = "SELECT * FROM orders WHERE order_id = ?";
+  db.query(query, [orderId], (err, result) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+    res.json(result[0]);
+  });
+});
+app.post(
+  "/api/upload-customization-image",
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const { order_id } = req.body;
+      const image = req.file ? req.file.filename : null;
+
+      if (!order_id || !image) {
+        return res
+          .status(400)
+          .json({ error: "Order ID and image are required" });
+      }
+
+      const updateImageSql = `UPDATE customization_details SET image = ? WHERE order_id = ?`;
+
+      db.query(updateImageSql, [image, order_id], (err, result) => {
+        if (err) {
+          console.error("Error updating image:", err);
+          return res
+            .status(500)
+            .json({ error: "Database error while updating image" });
+        }
+
+        res.json({ success: true, message: "Image uploaded successfully" });
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ error: "Image upload failed" });
+    }
+  }
+);
+app.get("/api/vieworders/:email", (req, res) => {
+  const userEmail = req.params.email;
+
+  const sql = `
+    SELECT
+    o.order_id,
+    o.razorpay_order_id,
+    o.total_amount,
+    o.status,
+    o.order_date,
+    oi.order_item_id,
+    oi.product_id,
+    oi.quantity,
+    oi.price,
+    p.product_name,
+    p.product_image  -- This line is already present, so it should work
+FROM orders o
+JOIN order_items oi ON o.order_id = oi.order_id
+JOIN products p ON oi.product_id = p.product_id
+WHERE o.email = ?
+ORDER BY o.order_date DESC;
+  `;
+
+  db.query(sql, [userEmail], (err, results) => {
+    if (err) {
+      console.error("Error fetching orders:", err);
+      return res.status(500).json({ error: "Failed to fetch orders" });
+    }
+    res.json(results);
+  });
+});
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

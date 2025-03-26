@@ -23,11 +23,10 @@ const Orders = ({ setUser: setGlobalUser }) => {
     text: "",
     image: null,
     customization_details: "",
-    quantity: 1, // Initialize with 1
+    quantity: 1,
   });
 
-  // Calculate additional price based on text length and max_characters
-  const calculateTextSurcharge = (text) => {
+  const calculateTextSurcharge = (text, quantity) => {
     if (!product?.isTextNeeded) return 0;
     const textLength = text.length;
     if (textLength === 0) return 0;
@@ -37,12 +36,19 @@ const Orders = ({ setUser: setGlobalUser }) => {
 
     // Calculate charges based on text length
     const charBlocks = Math.ceil(textLength / maxChars);
-    return charBlocks * 10; // Rs.10 for each block of characters
+    return charBlocks * 10 * quantity;
   };
 
-  // Calculate total price including text surcharge
-  const textSurcharge = calculateTextSurcharge(formData.text);
+  // Calculate surcharge
+  const textSurcharge = calculateTextSurcharge(
+    formData.text,
+    formData.quantity
+  );
+
+  // Calculate base price
   const basePrice = product ? product.Price * formData.quantity : 0;
+
+  // Calculate total price
   const totalPrice = basePrice + (formData.text.length > 0 ? textSurcharge : 0);
 
   // Fetch user session if not available
@@ -178,19 +184,25 @@ const Orders = ({ setUser: setGlobalUser }) => {
     }
 
     try {
-      // First, prepare order data
-      const orderData = {
-        email: user.email,
-        product_id: product.Product_id,
-        quantity: formData.quantity,
-        total_amount: totalPrice,
-        max_characters: product.max_characters || 50,
-      };
+      // Format the data to match the backend expectations
+      const cartItems = [
+        {
+          product_id: product.Product_id,
+          quantity: formData.quantity,
+          max_characters: product.max_characters || 50,
+          text: formData.text,
+          customization_description: formData.customization_details,
+        },
+      ];
 
       // Step 1: Create an order on the backend
       const orderResponse = await axios.post(
         "http://localhost:5000/api/create-order",
-        orderData
+        {
+          email: user.email,
+          cartItems,
+          total_amount: totalPrice,
+        }
       );
 
       const { id: order_id, currency, amount } = orderResponse.data;
@@ -207,15 +219,10 @@ const Orders = ({ setUser: setGlobalUser }) => {
         handler: async function (response) {
           try {
             // Step 3: Verify payment on the backend
-            axios.post("http://localhost:5000/api/verify-payment", {
+            await axios.post("http://localhost:5000/api/verify-payment", {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_signature: response.razorpay_signature,
-              // Send customization details with payment verification
-              customization: {
-                text: formData.text,
-                customization_details: formData.customization_details,
-              },
             });
 
             // Step 4: If verification successful, upload image if exists
@@ -228,7 +235,9 @@ const Orders = ({ setUser: setGlobalUser }) => {
                 "http://localhost:5000/api/upload-customization-image",
                 imageFormData,
                 {
-                  headers: { "Content-Type": "multipart/form-data" },
+                  headers: {
+                    "Content-Type": "multipart/form-data",
+                  },
                 }
               );
             }
