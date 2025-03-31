@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import axios from "axios";
-import logo from "../../components/Products/Navbar/logo.png";
-import { FaUserCircle, FaArrowLeft } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
 
+import axios from "axios";
+
+import { FaArrowLeft } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import Header from "./Header";
 const OrdersPage = () => {
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
@@ -34,19 +34,6 @@ const OrdersPage = () => {
       setError("Failed to load orders. Please try again.");
       setLoading(false);
     }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await axios.get("http://localhost:5000/logout", {
-        withCredentials: true,
-      });
-    } catch (error) {
-      console.error("Server logout error:", error);
-    }
-    localStorage.removeItem("user");
-    setUser(null);
-    navigate("/login");
   };
 
   const toggleOrderDetails = (orderId) => {
@@ -101,31 +88,7 @@ const OrdersPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div>
-            <Link
-              to="/dashboard"
-              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
-            >
-              <img src={logo} alt="logo" className="w-10" />
-              <span className="text-primary">CustomHive</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <FaUserCircle className="text-3xl text-primary" />
-            <span className="hidden md:inline text-gray-700">
-              {user?.name || "Guest"}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Header setUser={setUser} />
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">

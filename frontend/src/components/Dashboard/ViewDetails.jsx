@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
-import logo from "../../components/Products/Navbar/logo.png";
+
 import axios from "axios";
 import {
   FaShoppingCart,
@@ -9,47 +9,16 @@ import {
   FaTag,
   FaStore,
   FaUser,
-  FaUserCircle,
 } from "react-icons/fa";
+import Header from "./Header";
 // import { BsStars } from "react-icons/bs";
-const ViewDetails = ({ setUser: setGlobalUser = () => {} }) => {
+const ViewDetails = ({ setUser }) => {
   const { id } = useParams();
   const navigate = useNavigate(); // Added missing navigate definition
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // const [quantity, setQuantity] = useState(1);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [user, setLocalUser] = useState(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
 
-  useEffect(() => {
-    // If no user is found in local state, try to get from session
-    if (!user) {
-      axios
-        .get("http://localhost:5000/api/session", { withCredentials: true })
-        .then((response) => {
-          if (response.data.user) {
-            const userData = response.data.user;
-            setLocalUser(userData);
-            localStorage.setItem("user", JSON.stringify(userData));
-            // Update global user state if the setter function exists
-            if (typeof setGlobalUser === "function") {
-              setGlobalUser(userData);
-            }
-          } else {
-            // No user in session, redirect to login
-            navigate("/login");
-          }
-        })
-        .catch((error) => {
-          console.error("Error fetching session:", error);
-          navigate("/login");
-        });
-    }
-  }, [user, setGlobalUser, navigate]);
   useEffect(() => {
     console.log("Product ID from params:", id);
 
@@ -82,21 +51,6 @@ const ViewDetails = ({ setUser: setGlobalUser = () => {} }) => {
     fetchProduct();
   }, [id]);
 
-  const handleLogout = async () => {
-    try {
-      await axios.get("http://localhost:5000/logout", {
-        withCredentials: true,
-      });
-    } catch (error) {
-      console.error("Server logout error:", error);
-    }
-    localStorage.removeItem("user");
-    setLocalUser(null);
-    if (typeof setGlobalUser === "function") {
-      setGlobalUser(null);
-    }
-    navigate("/login");
-  };
   const handleBuyNow = () => {
     navigate("/orders", { state: { product } });
   };
@@ -192,47 +146,7 @@ const ViewDetails = ({ setUser: setGlobalUser = () => {} }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div>
-            <Link
-              to="/"
-              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
-            >
-              <img src={logo} alt="logo" className="w-10" />
-              <span className="text-primary">CustomHive</span>
-            </Link>
-          </div>
-          {/* Aligning the elements horizontally */}
-          <div className="flex items-center gap-6">
-            {/* Cart Icon */}
-            <Link to="/cart">
-              <FaShoppingCart className="text-3xl text-primary" />
-            </Link>
-
-            {/* User Profile Dropdown */}
-            <div className="relative flex items-center gap-2">
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="focus:outline-none flex items-center gap-2"
-              >
-                <FaUserCircle className="text-3xl text-primary" />
-                <span className="hidden md:inline text-gray-700">
-                  {user?.name || "Guest"}
-                </span>
-              </button>
-            </div>
-
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Header setUser={setUser} />
 
       {/* Welcome Message */}
 
@@ -245,10 +159,6 @@ const ViewDetails = ({ setUser: setGlobalUser = () => {} }) => {
             <FaArrowLeft />
             <span>Back to Dashboard</span>
           </Link>
-          {/* <button className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2">
-            <BsStars />
-            <span>Customize Your Product</span>
-          </button> */}
         </div>
 
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -321,42 +231,6 @@ const ViewDetails = ({ setUser: setGlobalUser = () => {} }) => {
                 )}
               </div>
 
-              {/* Quantity Selector */}
-              {/* <div className="mb-6">
-                <p className="text-gray-700 mb-2">
-                  Quantity (1-{MAX_QUANTITY}):
-                </p>
-                <div className="flex items-center border border-gray-300 rounded-md w-32">
-                  <button
-                    onClick={decrementQuantity}
-                    className="px-3 py-1 text-gray-600 hover:bg-gray-100"
-                    disabled={quantity <= 1}
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    min="1"
-                    max={MAX_QUANTITY}
-                    value={quantity}
-                    onChange={handleQuantityChange}
-                    className="w-12 text-center border-none focus:ring-0"
-                  />
-                  <button
-                    onClick={incrementQuantity}
-                    className="px-3 py-1 text-gray-600 hover:bg-gray-100"
-                    disabled={quantity >= MAX_QUANTITY}
-                  >
-                    +
-                  </button>
-                </div>
-                {quantity >= MAX_QUANTITY && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    Maximum quantity reached.
-                  </p>
-                )}
-                </div> */}
-              {/* Add to Cart and Buy Now buttons */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
                   onClick={handleAddToCart}
@@ -462,8 +336,8 @@ ViewDetails.propTypes = {
   setUser: PropTypes.func.isRequired,
 };
 
-ViewDetails.defaultProps = {
-  setUser: () => {},
+ViewDetails.propTypes = {
+  setUser: PropTypes.func,
 };
 
 export default ViewDetails;

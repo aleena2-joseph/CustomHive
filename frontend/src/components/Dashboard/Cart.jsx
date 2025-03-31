@@ -1,22 +1,16 @@
 import { useState, useEffect } from "react";
-import {
-  FaTrash,
-  FaArrowLeft,
-  FaShoppingBag,
-  FaUserCircle,
-} from "react-icons/fa";
+import { FaTrash, FaArrowLeft, FaShoppingBag } from "react-icons/fa";
 import axios from "axios";
 import PropTypes from "prop-types";
-
+import Header from "./Header";
 import { Link, useNavigate } from "react-router-dom";
-import logo from "../Products/Navbar/logo.png";
 
-const Cart = ({ setUser: setGlobalUser }) => {
+const Cart = ({ setUser: setUser }) => {
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [user, setLocalUser] = useState(() => {
+  const [user] = useState(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
@@ -26,33 +20,6 @@ const Cart = ({ setUser: setGlobalUser }) => {
     (acc, item) => acc + parseFloat(item.Price || 0) * item.quantity,
     0
   );
-
-  // First useEffect to handle session management
-  useEffect(() => {
-    // If no user is found in local state, try to get from session
-    if (!user) {
-      axios
-        .get("http://localhost:5000/api/session", { withCredentials: true })
-        .then((response) => {
-          if (response.data.user) {
-            const userData = response.data.user;
-            setLocalUser(userData);
-            localStorage.setItem("user", JSON.stringify(userData));
-            // Update global user state if the setter function exists
-            if (typeof setGlobalUser === "function") {
-              setGlobalUser(userData);
-            }
-          } else {
-            // No user in session, redirect to login
-            navigate("/login");
-          }
-        })
-        .catch((error) => {
-          console.error("Error fetching session:", error);
-          navigate("/login");
-        });
-    }
-  }, [user, setGlobalUser, navigate]);
 
   // Second useEffect to fetch cart items once we have a user
   useEffect(() => {
@@ -116,50 +83,10 @@ const Cart = ({ setUser: setGlobalUser }) => {
     navigate("/CartCheckout");
   };
 
-  const handleLogout = async () => {
-    try {
-      await axios.get("http://localhost:5000/logout", {
-        withCredentials: true,
-      });
-    } catch (error) {
-      console.error("Server logout error:", error);
-    }
-    localStorage.removeItem("user");
-    setLocalUser(null);
-    if (typeof setGlobalUser === "function") {
-      setGlobalUser(null);
-    }
-    navigate("/login");
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div>
-            <Link
-              to="/dashboard"
-              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
-            >
-              <img src={logo} alt="logo" className="w-10" />
-              <span className="text-primary">CustomHive</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <FaUserCircle className="text-3xl text-primary" />
-            <span className="hidden md:inline text-gray-700">
-              {user?.name || "Guest"}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Header setUser={setUser} />
 
       {/* Cart Page Content */}
       <div className="container mx-auto px-4 py-8">

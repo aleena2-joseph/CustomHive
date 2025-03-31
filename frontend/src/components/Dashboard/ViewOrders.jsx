@@ -1,33 +1,22 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import PropTypes from "prop-types";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   FaArrowLeft,
   FaShoppingBag,
-  FaUserCircle,
   FaEye,
   FaFileInvoice,
 } from "react-icons/fa";
-import logo from "../Products/Navbar/logo.png";
 
-const ViewOrders = ({ userEmail, setGlobalUser }) => {
+import Header from "./Header";
+
+const ViewOrders = ({ userEmail, setUser }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  const [user, setLocalUser] = useState(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
-  const navigate = useNavigate();
   useEffect(() => {
-    // Fetch user data from localStorage if available
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setLocalUser(JSON.parse(storedUser));
-    }
-
     const fetchOrders = async () => {
       try {
         setLoading(true);
@@ -44,31 +33,6 @@ const ViewOrders = ({ userEmail, setGlobalUser }) => {
 
     fetchOrders();
   }, [userEmail]);
-  useEffect(() => {
-    // If no user is found in local state, try to get from session
-    if (!user) {
-      axios
-        .get("http://localhost:5000/api/session", { withCredentials: true })
-        .then((response) => {
-          if (response.data.user) {
-            const userData = response.data.user;
-            setLocalUser(userData);
-            localStorage.setItem("user", JSON.stringify(userData));
-            // Update global user state if the setter function exists
-            if (typeof setGlobalUser === "function") {
-              setGlobalUser(userData);
-            }
-          } else {
-            // No user in session, redirect to login
-            navigate("/login");
-          }
-        })
-        .catch((error) => {
-          console.error("Error fetching session:", error);
-          navigate("/login");
-        });
-    }
-  }, [user, setGlobalUser, navigate]);
 
   const handleViewDetails = (order) => {
     setSelectedOrder(order);
@@ -76,22 +40,6 @@ const ViewOrders = ({ userEmail, setGlobalUser }) => {
 
   const handleCloseDetails = () => {
     setSelectedOrder(null);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await axios.get("http://localhost:5000/logout", {
-        withCredentials: true,
-      });
-    } catch (error) {
-      console.error("Server logout error:", error);
-    }
-    localStorage.removeItem("user");
-    setLocalUser(null);
-    if (typeof setGlobalUser === "function") {
-      setGlobalUser(null);
-    }
-    navigate("/login");
   };
 
   const getStatusColor = (status) => {
@@ -124,32 +72,7 @@ const ViewOrders = ({ userEmail, setGlobalUser }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div>
-            <Link
-              to="/dashboard"
-              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
-            >
-              <img src={logo} alt="logo" className="w-10" />
-              <span className="text-primary">CustomHive</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <FaUserCircle className="text-3xl text-primary" />
-            <span className="hidden md:inline text-gray-700">
-              {user?.name || userEmail || "Guest"}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Header setUser={setUser} />
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
@@ -448,7 +371,7 @@ ViewOrders.propTypes = {
   userEmail: PropTypes.string.isRequired,
 };
 ViewOrders.propTypes = {
-  setGlobalUser: PropTypes.func,
+  setUser: PropTypes.func,
 };
 
 export default ViewOrders;

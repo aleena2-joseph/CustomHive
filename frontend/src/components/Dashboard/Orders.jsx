@@ -1,19 +1,21 @@
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import logo from "../../components/Products/Navbar/logo.png";
-import { FaUserCircle, FaArrowLeft } from "react-icons/fa";
+import { FaArrowLeft } from "react-icons/fa";
 import PropTypes from "prop-types";
+import Header from "./Header";
 
-const Orders = ({ setUser: setGlobalUser }) => {
+const Orders = ({ setUser: setUser }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const initialProduct = location.state?.product;
   const [quantity, setQuantity] = useState(1);
-  const [user, setLocalUser] = useState(() => {
+  const [user] = useState(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
+
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -50,33 +52,6 @@ const Orders = ({ setUser: setGlobalUser }) => {
 
   // Calculate total price
   const totalPrice = basePrice + (formData.text.length > 0 ? textSurcharge : 0);
-
-  // Fetch user session if not available
-  useEffect(() => {
-    // If no user is found in local state, try to get from session
-    if (!user) {
-      axios
-        .get("http://localhost:5000/api/session", { withCredentials: true })
-        .then((response) => {
-          if (response.data.user) {
-            const userData = response.data.user;
-            setLocalUser(userData);
-            localStorage.setItem("user", JSON.stringify(userData));
-            // Update global user state if the setter function exists
-            if (typeof setGlobalUser === "function") {
-              setGlobalUser(userData);
-            }
-          } else {
-            // No user in session, redirect to login
-            navigate("/login");
-          }
-        })
-        .catch((error) => {
-          console.error("Error fetching session:", error);
-          navigate("/login");
-        });
-    }
-  }, [user, setGlobalUser, navigate]);
 
   useEffect(() => {
     if (!initialProduct) {
@@ -128,22 +103,6 @@ const Orders = ({ setUser: setGlobalUser }) => {
       quantity: quantity,
     }));
   }, [quantity]);
-
-  const handleLogout = async () => {
-    try {
-      await axios.get("http://localhost:5000/logout", {
-        withCredentials: true,
-      });
-    } catch (error) {
-      console.error("Server logout error:", error);
-    }
-    localStorage.removeItem("user");
-    setLocalUser(null);
-    if (typeof setGlobalUser === "function") {
-      setGlobalUser(null);
-    }
-    navigate("/login");
-  };
 
   const incrementQuantity = () => {
     if (quantity < MAX_QUANTITY) {
@@ -243,7 +202,7 @@ const Orders = ({ setUser: setGlobalUser }) => {
             }
 
             alert("Payment successful! Your order has been placed.");
-            navigate("/my-orders");
+            navigate("/view-orders");
           } catch (error) {
             console.error("Error during payment verification:", error);
             alert("Payment verification failed. Please contact support.");
@@ -296,32 +255,7 @@ const Orders = ({ setUser: setGlobalUser }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div>
-            <Link
-              to="/dashboard"
-              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
-            >
-              <img src={logo} alt="logo" className="w-10" />
-              <span className="text-primary">CustomHive</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <FaUserCircle className="text-3xl text-primary" />
-            <span className="hidden md:inline text-gray-700">
-              {user?.name || "Guest"}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Header setUser={setUser} />
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">

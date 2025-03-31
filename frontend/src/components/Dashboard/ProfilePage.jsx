@@ -1,25 +1,700 @@
+// import { useState, useEffect } from "react";
+// import axios from "axios";
+// import PropTypes from "prop-types";
+// import { Link } from "react-router-dom";
+// import { FaUserCircle, FaArrowLeft } from "react-icons/fa";
+// import {
+//   FiPlusCircle,
+//   FiDollarSign,
+//   FiPackage,
+//   FiTag,
+//   FiEdit,
+// } from "react-icons/fi";
+// import { RiFunctionAddLine } from "react-icons/ri";
+// import Header from "./Header";
+
+// const ProfilePage = ({ setUser }) => {
+//   const [products, setProducts] = useState([]);
+//   const [showModal, setShowModal] = useState(false);
+//   const [priceRangeError, setPriceRangeError] = useState("");
+//   const [priceRange, setPriceRange] = useState({ min: null, max: null });
+//   const [businessTypes, setBusinessTypes] = useState([]);
+//   const [selectedBusinessType, setSelectedBusinessType] = useState("");
+//   const [categories, setCategories] = useState([]);
+//   const [selectedCategory, setSelectedCategory] = useState("");
+//   const [subcategories, setSubcategories] = useState([]);
+//   const [selectedSubcategory, setSelectedSubcategory] = useState("");
+//   const [selectedProduct, setSelectedProduct] = useState(null);
+
+//   const handleEditClick = (product) => {
+//     setSelectedProduct(product); // Store selected product
+//     setShowModal(true); // Show the modal
+//   };
+
+//   const [requestData, setRequestData] = useState({
+//     businessCategory: "",
+//     businessTypeId: "",
+//     category: "",
+//     categoryId: "",
+//     subcategory: "",
+//   });
+
+//   // Update your handleInputChange function:
+//   const handleInputChange = (e) => {
+//     const { name, value } = e.target;
+
+//     // For select inputs, also update the corresponding ID field
+//     if (name === "businessCategory") {
+//       // Find the selected business type
+//       const selectedBT = businessTypes.find(
+//         (bt) => bt.business_id === parseInt(value)
+//       );
+
+//       if (selectedBT) {
+//         // If selecting from existing business types
+//         setRequestData({
+//           ...requestData,
+//           businessCategory: selectedBT.type_name,
+//           businessTypeId: value, // Store the ID as a string
+//         });
+
+//         // Fetch categories for this business type
+//         axios
+//           .get(`http://localhost:5000/api/categories?business_id=${value}`)
+//           .then((response) => {
+//             let categoriesData = Array.isArray(response.data)
+//               ? response.data
+//               : response.data && typeof response.data === "object"
+//               ? response.data.data || []
+//               : [];
+//             setCategories(categoriesData);
+//           })
+//           .catch((error) => {
+//             console.error("Error fetching categories:", error);
+//             setCategories([]);
+//           });
+//       } else {
+//         // For manually entered business type
+//         setRequestData({
+//           ...requestData,
+//           businessCategory: value,
+//           businessTypeId: "",
+//           categoryId: "", // Reset category ID when business type changes
+//           category: "", // Reset category when business type changes
+//         });
+//         setCategories([]);
+//       }
+//     } else if (name === "category" && requestData.businessTypeId) {
+//       // For category selection
+//       const selectedCat = categories.find(
+//         (cat) => cat.category_id === parseInt(value)
+//       );
+
+//       if (selectedCat) {
+//         setRequestData({
+//           ...requestData,
+//           category: selectedCat.category_name,
+//           categoryId: value,
+//         });
+//       } else {
+//         setRequestData({
+//           ...requestData,
+//           category: value,
+//           categoryId: "",
+//         });
+//       }
+//     } else {
+//       // For other inputs
+//       setRequestData({ ...requestData, [name]: value });
+//     }
+//   };
+//   const handleRequest = () => {
+//     setShowModal(true);
+//   };
+//   const handleSubmit = (e) => {
+//     e.preventDefault();
+//     handleSub(e); // Call the existing handleSub function
+//   };
+
+//   // Update handleSubmitRequest to use the IDs if available
+//   const handleSubmitRequest = async () => {
+//     try {
+//       const response = await fetch(
+//         "http://localhost:5000/request-business-category",
+//         {
+//           method: "POST",
+//           headers: {
+//             "Content-Type": "application/json",
+//           },
+//           body: JSON.stringify({
+//             profile_id: user?.id || 1, // Use user ID if available
+//             requested_business_type:
+//               requestData.businessTypeId || requestData.businessCategory,
+//             requested_category: requestData.categoryId || requestData.category,
+//             requested_subcategory: requestData.subcategory,
+//             is_new_business_type: !requestData.businessTypeId,
+//             is_new_category: !requestData.categoryId,
+//           }),
+//         }
+//       );
+
+//       const data = await response.json();
+
+//       if (response.ok) {
+//         alert("Request sent successfully!");
+//         setShowModal(false);
+//         setRequestData({
+//           businessCategory: "",
+//           businessTypeId: "",
+//           category: "",
+//           categoryId: "",
+//           subcategory: "",
+//         });
+//       } else {
+//         throw new Error(data.message || "Failed to send request");
+//       }
+//     } catch (error) {
+//       console.error("Error sending request:", error);
+//       alert("Failed to send request.");
+//     }
+//   };
+//   // Updated handleUpdateProduct function with authentication
+//   const handleUpdateProduct = async () => {
+//     // Validate inputs
+//     if (!selectedProduct.Product_name || !selectedProduct.Price) {
+//       alert("Enter all fields correctly!");
+//       return;
+//     }
+
+//     if (selectedProduct.Stock < 0 || selectedProduct.Stock > 100) {
+//       alert("Stock must be between 0 and 100!");
+//       return;
+//     }
+
+//     try {
+//       // Collect the data to update
+//       const productData = {
+//         Product_name: selectedProduct.Product_name,
+//         Price: selectedProduct.Price,
+//         Description: selectedProduct.Description || "",
+//         Stock: selectedProduct.Stock,
+//         isImageNeeded: selectedProduct.isImageNeeded,
+//         isTextNeeded: selectedProduct.isTextNeeded,
+//         max_characters: selectedProduct.max_characters, // Add max_characters to update
+//       };
+
+//       await axios.put(
+//         `http://localhost:5000/api/update-product/${selectedProduct.Product_id}`,
+//         productData,
+//         {
+//           headers: { "Content-Type": "application/json" },
+//           withCredentials: true,
+//         }
+//       );
+
+//       // Rest of the function remains the same
+//     } catch {
+//       // Error handling code
+//     }
+//   };
+
+//   //const navigate = useNavigate();
+//   const [formData, setFormData] = useState({
+//     name: "",
+//     email: "",
+//     phone: "",
+//     profile_pic: null,
+//   });
+
+//   const [isEditing, setIsEditing] = useState(false);
+//   // Session: initialize user from localStorage
+//   const [user, setUserState] = useState(() => {
+//     const storedUser = localStorage.getItem("user");
+//     return storedUser ? JSON.parse(storedUser) : null;
+//   });
+//   useEffect(() => {
+//     if (user) {
+//       setFormData({
+//         name: user.name,
+//         email: user.email, // Readonly
+//         phone: user.phone,
+//         profile_pic: user.profile_pic,
+//       });
+//     }
+//   }, [user]);
+//   const handleChange = (e) => {
+//     setFormData({ ...formData, [e.target.name]: e.target.value });
+//   };
+
+//   // If no user is stored, fetch session data from the backend.
+//   useEffect(() => {
+//     if (!user) {
+//       axios
+//         .get("http://localhost:5000/api/session", { withCredentials: true })
+//         .then((response) => {
+//           if (response.data.user) {
+//             setUserState(response.data.user);
+//             localStorage.setItem("user", JSON.stringify(response.data.user));
+//             if (typeof setUser === "function") {
+//               setUser(response.data.user);
+//             }
+//           }
+//         })
+//         .catch((error) => {
+//           console.error("Error fetching session:", error);
+//         });
+//     }
+//   }, [user, setUser]);
+
+//   const [newProduct, setNewProduct] = useState({
+//     name: "",
+//     description: "",
+//     price: "",
+//     stock: 1,
+//     profile_pic: null,
+//     isImageNeeded: true, // Default to true
+//     isTextNeeded: true, // Default to true
+//     max_characters: 100, // Default value for maximum characters
+//   });
+
+//   // Fetch products for the current user (using session and explicit email parameter)
+//   useEffect(() => {
+//     if (user && user.email) {
+//       axios
+//         .get(
+//           `http://localhost:5000/api/products?email=${encodeURIComponent(
+//             user.email
+//           )}`,
+//           {
+//             withCredentials: true,
+//           }
+//         )
+//         .then((response) => {
+//           console.log("Products:", response.data);
+//           setProducts(response.data);
+//         })
+//         .catch((error) => console.error("Error fetching products:", error));
+//     }
+//   }, [user]);
+
+//   // Fetch price range when subcategory changes
+//   useEffect(() => {
+//     if (selectedSubcategory && selectedBusinessType) {
+//       axios
+//         .get(
+//           `http://localhost:5000/api/price-range?business_id=${selectedBusinessType}&subcategory_id=${selectedSubcategory}`
+//         )
+//         .then((response) => {
+//           if (
+//             response.data.min_price !== undefined &&
+//             response.data.max_price !== undefined
+//           ) {
+//             setPriceRange({
+//               min: response.data.min_price,
+//               max: response.data.max_price,
+//             });
+//           }
+//         })
+//         .catch((error) => {
+//           console.error("Error fetching price range:", error);
+//         });
+//     } else {
+//       setPriceRange({ min: null, max: null });
+//     }
+//   }, [selectedSubcategory, selectedBusinessType]);
+
+//   useEffect(() => {
+//     axios
+//       .get("http://localhost:5000/api/business-types")
+//       .then((response) => {
+//         console.log("Business Types:", response.data);
+//         setBusinessTypes(response.data || []);
+//       })
+//       .catch((error) => console.error("Error fetching business types:", error));
+//   }, []);
+
+//   useEffect(() => {
+//     if (selectedBusinessType) {
+//       console.log(
+//         "Fetching categories for business type:",
+//         selectedBusinessType
+//       );
+
+//       axios
+//         .get(
+//           `http://localhost:5000/api/categories?business_id=${selectedBusinessType}`
+//         )
+//         .then((response) => {
+//           console.log("Raw Categories Response:", response);
+
+//           // Handle different response structures
+//           let categoriesData;
+//           if (Array.isArray(response.data)) {
+//             categoriesData = response.data;
+//           } else if (response.data && typeof response.data === "object") {
+//             categoriesData = response.data.data || [];
+//           } else {
+//             categoriesData = [];
+//             console.error("Unexpected response format:", response.data);
+//           }
+
+//           console.log("Processed Categories Data:", categoriesData);
+//           setCategories(categoriesData);
+
+//           // Reset subcategory-related selections
+//           setSelectedCategory("");
+//           setSelectedSubcategory("");
+//           setPriceRange({ min: null, max: null });
+//           setPriceRangeError("");
+//         })
+//         .catch((error) => {
+//           console.error("Error fetching categories:", error);
+//           if (error.response) {
+//             console.log("Error status:", error.response.status);
+//             console.log("Error data:", error.response.data);
+//           }
+//           setCategories([]);
+//         });
+//     } else {
+//       setCategories([]);
+//       setSelectedCategory("");
+//       setSelectedSubcategory("");
+//       setPriceRange({ min: null, max: null });
+//       setPriceRangeError("");
+//     }
+//   }, [selectedBusinessType]);
+//   // Fetch subcategories when a category is selected
+//   useEffect(() => {
+//     if (selectedCategory) {
+//       console.log("Fetching subcategories for category:", selectedCategory);
+
+//       axios
+//         .get(
+//           `http://localhost:5000/api/subcategories?category_id=${selectedCategory}`
+//         )
+//         .then((response) => {
+//           console.log("Raw Subcategories Response:", response);
+
+//           // Handle different response structures
+//           let subcategoriesData;
+//           if (Array.isArray(response.data)) {
+//             subcategoriesData = response.data;
+//           } else if (response.data && typeof response.data === "object") {
+//             subcategoriesData = response.data.data || [];
+//           } else {
+//             subcategoriesData = [];
+//             console.error(
+//               "Unexpected subcategories response format:",
+//               response.data
+//             );
+//           }
+
+//           console.log("Processed Subcategories Data:", subcategoriesData);
+//           setSubcategories(subcategoriesData);
+//           setSelectedSubcategory("");
+//           setPriceRange({ min: null, max: null });
+//           setPriceRangeError("");
+//         })
+//         .catch((error) => {
+//           console.error("Error fetching subcategories:", error);
+//           if (error.response) {
+//             console.log("Error status:", error.response.status);
+//             console.log("Error data:", error.response.data);
+//           }
+//           setSubcategories([]);
+//         });
+//     } else {
+//       setSubcategories([]);
+//       setSelectedSubcategory("");
+//       setPriceRange({ min: null, max: null });
+//       setPriceRangeError("");
+//     }
+//   }, [selectedCategory]);
+//   const handleProductChange = (e) => {
+//     const { name, value } = e.target;
+//     setNewProduct((prev) => ({
+//       ...prev,
+//       [name]:
+//         name === "stock" ? Math.max(1, Math.min(100, Number(value))) : value,
+//     }));
+//   };
+
+//   // Handle file input for image upload
+//   const handleFileChange = (e) => {
+//     setNewProduct({ ...newProduct, image: e.target.files[0] });
+//   };
+
+//   const handleSub = async (e) => {
+//     e.preventDefault();
+
+//     console.log("Submitting Data:", newProduct); // Debugging
+
+//     try {
+//       const formData = new FormData();
+//       formData.append("name", newProduct.name);
+//       formData.append("description", newProduct.description);
+//       formData.append("price", newProduct.price);
+//       formData.append("subcategory_id", selectedSubcategory);
+//       formData.append("business_id", selectedBusinessType);
+//       formData.append("stock", newProduct.stock);
+//       formData.append("email", user?.email || "");
+//       formData.append("isImageNeeded", newProduct.isImageNeeded);
+//       formData.append("isTextNeeded", newProduct.isTextNeeded);
+//       formData.append("max_characters", newProduct.max_characters); // Add max_characters
+
+//       if (newProduct.image) {
+//         formData.append("image", newProduct.image);
+//       }
+
+//       const response = await fetch("http://localhost:5000/api/products", {
+//         method: "POST",
+//         body: formData, // Send FormData instead of JSON
+//       });
+//       const handleProfileSubmit = async (e) => {
+//         e.preventDefault();
+
+//         const formDataToSend = new FormData();
+//         formDataToSend.append("name", formData.name);
+//         formDataToSend.append("phone", formData.phone);
+//         formDataToSend.append("email", formData.email); // Readonly
+//         if (formData.profile_pic) {
+//           formDataToSend.append("profile_pic", formData.profile_pic);
+//         }
+
+//         try {
+//           await axios.post(
+//             "http://localhost:5000/updateProfile",
+//             formDataToSend,
+//             {
+//               headers: { "Content-Type": "multipart/form-data" },
+//             }
+//           );
+
+//           alert("Profile updated successfully!");
+//           setIsEditing(false);
+//         } catch (error) {
+//           console.error("Error updating profile:", error);
+//           alert("Failed to update profile.");
+//         }
+//       };
+//       const data = await response.json();
+//       console.log("Server Response:", data);
+
+//       if (response.ok) {
+//         alert("Product added successfully!");
+//         setNewProduct({
+//           name: "",
+//           price: "",
+//           stock: 1,
+//           description: "",
+//           isImageNeeded: true,
+//           isTextNeeded: true,
+//           max_characters: 100, // Reset to default value
+//           image: null,
+//         });
+
+//         // Refresh the products list
+//         if (user && user.email) {
+//           axios
+//             .get(
+//               `http://localhost:5000/api/products?email=${encodeURIComponent(
+//                 user.email
+//               )}`,
+//               { withCredentials: true }
+//             )
+//             .then((response) => {
+//               setProducts(response.data);
+//             })
+//             .catch((error) => console.error("Error fetching products:", error));
+//         }
+//       } else {
+//         alert("Failed to add product: " + data.message || data.error);
+//       }
+//     } catch (error) {
+//       console.error("Error submitting data:", error);
+//       alert("An error occurred.");
+//     }
+//   };
+
+//   const addProduct = async (e) => {
+//     e.preventDefault();
+
+//     setPriceRangeError("");
+
+//     if (
+//       !newProduct.name.trim() ||
+//       !newProduct.price.trim() ||
+//       !selectedSubcategory ||
+//       !selectedBusinessType ||
+//       !(user && user.email)
+//     ) {
+//       alert(
+//         "Please fill all required fields, including selecting a Business Type and ensuring you are logged in."
+//       );
+//       return;
+//     }
+
+//     const formData = new FormData();
+//     formData.append("name", newProduct.name);
+//     formData.append("description", newProduct.description);
+//     formData.append("price", newProduct.price);
+//     formData.append("subcategory_id", selectedSubcategory);
+//     formData.append("business_id", selectedBusinessType);
+//     formData.append("stock", newProduct.stock);
+//     formData.append("email", user?.email || "");
+//     formData.append("isImageNeeded", newProduct.isImageNeeded);
+//     formData.append("isTextNeeded", newProduct.isTextNeeded);
+//     formData.append("max_characters", newProduct.max_characters); // Add max_characters
+
+//     if (newProduct.image) {
+//       formData.append("image", newProduct.image);
+//     }
+
+//     try {
+//       // Rest of the function remains the same
+//     } catch {
+//       // Error handling code
+//     }
+//   };
+
+//   const toggleProductStatus = async (id, currentStatus) => {
+//     try {
+//       const response = await axios.put(
+//         `http://localhost:5000/api/products/status/${id}`,
+//         { status: !currentStatus ? 1 : 0 }, // Ensure correct format
+//         { withCredentials: true }
+//       );
+
+//       if (response.status === 200) {
+//         setProducts((prevProducts) =>
+//           prevProducts.map((product) =>
+//             product.Product_id === id
+//               ? { ...product, Status: !currentStatus }
+//               : product
+//           )
+//         );
+//       }
+//     } catch (error) {
+//       console.error("Error updating product status:", error);
+//     }
+//   };
+
+//   return (
+//     <div className="min-h-screen bg-gray-50">
+//       <Header setUser={setUser} />
+//       <div className="flex gap-2 text-primary hover:text-primary/80 transition-colors ml-10 mt-5">
+//         <Link to="/dashboard" className="flex items-center">
+//           <h3 className="flex items-center">
+//             <FaArrowLeft className="mr-2" />
+//             Back to Dashboard
+//           </h3>
+//         </Link>
+//       </div>
+
+//       <div className="max-w-5xl mx-auto p-6">
+//         {/* Profile Header */}
+//         <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
+//           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+//             <div className="bg-gradient-to-br from-primary/40 to-primary/60 p-6 rounded-full">
+//               <FaUserCircle className="text-6xl text-white" />
+//             </div>
+//             <div className="text-center md:text-left">
+//               <h2 className="text-2xl font-bold text-gray-800">
+//                 {user?.name || "Guest"}
+//               </h2>
+//               <p className="text-lg text-gray-600">{user?.email || ""}</p>
+//               <div className="mt-2 inline-block bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
+//                 Seller Account
+//               </div>
+//             </div>
+//             <div className="ml-auto flex flex-col md:flex-row gap-3 mt-4 md:mt-0">
+//               <div className="p-6">
+//                 <button
+//                   className="flex items-center justify-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition"
+//                   onClick={() => setIsEditing(true)}
+//                 >
+//                   <FiEdit size={18} />
+//                   <span>Edit Profile</span>
+//                 </button>
+
+//                 {isEditing && (
+//                   <div className="mt-4 p-4 border rounded-lg shadow-lg bg-white">
+//                     <form onSubmit={handleProfileSubmit} className="space-y-4">
+//                       <div>
+//                         <label className="block text-gray-700">Name:</label>
+//                         <input
+//                           type="text"
+//                           name="name"
+//                           value={formData.name}
+//                           onChange={handleChange}
+//                           className="w-full px-3 py-2 border rounded-lg"
+//                         />
+//                       </div>
+
+//                       <div>
+//                         <label className="block text-gray-700">
+//                           Email (Read-only):
+//                         </label>
+//                         <input
+//                           type="email"
+//                           name="email"
+//                           value={formData.email}
+//                           readOnly
+//                           className="w-full px-3 py-2 border rounded-lg bg-gray-100"
+//                         />
+//                       </div>
+
+//                       <div>
+//                         <label className="block text-gray-700">Phone:</label>
+//                         <input
+//                           type="text"
+//                           name="phone"
+//                           value={formData.phone}
+//                           onChange={handleChange}
+//                           className="w-full px-3 py-2 border rounded-lg"
+//                         />
+//                       </div>
+
+//                       <div>
+//                         <label className="block text-gray-700">
+//                           Profile Picture:
+//                         </label>
+//                         <input
+//                           type="file"
+//                           name="profile_pic"
+//                           onChange={handleFileChange}
+//                           className="w-full px-3 py-2 border rounded-lg"
+//                         />
+//                       </div>
+
+//                       <button
+//                         type="submit"
+//                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+//                       >
+//                         Save Changes
+//                       </button>
+//                     </form>
+//                   </div>
+//                 )}
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+
 import { useState, useEffect } from "react";
 import axios from "axios";
 import PropTypes from "prop-types";
-import { Link, useNavigate } from "react-router-dom";
-import logo from "../Products/Navbar/logo.png";
+import { Link } from "react-router-dom";
 import { FaUserCircle, FaArrowLeft } from "react-icons/fa";
-import {
-  FiPlusCircle,
-  FiDollarSign,
-  FiPackage,
-  FiTag,
-  FiEdit,
-} from "react-icons/fi";
+import { FiPlusCircle, FiDollarSign, FiPackage, FiTag } from "react-icons/fi";
 import { RiFunctionAddLine } from "react-icons/ri";
+import Header from "./Header";
 
 const ProfilePage = ({ setUser }) => {
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [priceRangeError, setPriceRangeError] = useState("");
   const [priceRange, setPriceRange] = useState({ min: null, max: null });
-
-  // States for business types, categories, and subcategories
   const [businessTypes, setBusinessTypes] = useState([]);
   const [selectedBusinessType, setSelectedBusinessType] = useState("");
   const [categories, setCategories] = useState([]);
@@ -33,6 +708,14 @@ const ProfilePage = ({ setUser }) => {
     setShowModal(true); // Show the modal
   };
 
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    profile_pic: null,
+  });
+
+  const [isEditing, setIsEditing] = useState(false);
   const [requestData, setRequestData] = useState({
     businessCategory: "",
     businessTypeId: "",
@@ -41,6 +724,65 @@ const ProfilePage = ({ setUser }) => {
     subcategory: "",
   });
 
+  useEffect(() => {
+    axios
+      .get("http://localhost:5000/getProfile", { withCredentials: true })
+      .then((response) => {
+        const { name, email, phone } = response.data;
+        setFormData({ name, email, phone, profile_pic: null });
+      })
+      .catch((error) => {
+        console.error("Error fetching profile:", error);
+      });
+  }, []);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleFileChange = (e) => {
+    setFormData({ ...formData, profile_pic: e.target.files[0] });
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+
+    const formDataToSend = new FormData();
+    formDataToSend.append("name", formData.name);
+    formDataToSend.append("phone", formData.phone);
+    if (formData.profile_pic) {
+      formDataToSend.append("profile_pic", formData.profile_pic);
+    }
+
+    try {
+      await axios.post("http://localhost:5000/updateProfile", formDataToSend, {
+        headers: { "Content-Type": "multipart/form-data" },
+        withCredentials: true,
+      });
+
+      alert("Profile updated successfully!");
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Failed to update profile.");
+    }
+  };
+
+  //   // Fetch user details from backend
+  //   axios
+  //     .get(`http://localhost:5000/getUser?email=${formData.email}`)
+  //     .then((response) => {
+  //       setFormData((prevData) => ({
+  //         ...prevData,
+  //         name: response.data.name,
+  //         phone: response.data.phone,
+  //         profile_pic_url: response.data.profile_pic
+  //           ? `http://localhost:5000/uploads/${response.data.profile_pic}`
+  //           : "",
+  //       }));
+  //     })
+  //     .catch((error) => console.error("Error fetching profile:", error));
+  // }, []);
   // Update your handleInputChange function:
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -196,7 +938,7 @@ const ProfilePage = ({ setUser }) => {
     }
   };
 
-  const navigate = useNavigate();
+  //const navigate = useNavigate();
 
   // Session: initialize user from localStorage
   const [user, setUserState] = useState(() => {
@@ -280,24 +1022,6 @@ const ProfilePage = ({ setUser }) => {
     }
   }, [selectedSubcategory, selectedBusinessType]);
 
-  // Logout handler
-  const handleLogout = async () => {
-    try {
-      await axios.get("http://localhost:5000/logout", {
-        withCredentials: true,
-      });
-    } catch (error) {
-      console.error("Server logout error:", error);
-    }
-    localStorage.removeItem("user");
-    if (typeof setUser === "function") {
-      setUser(null);
-    }
-    setUserState(null);
-    navigate("/login");
-  };
-
-  // Fetch business types on mount
   useEffect(() => {
     axios
       .get("http://localhost:5000/api/business-types")
@@ -308,9 +1032,6 @@ const ProfilePage = ({ setUser }) => {
       .catch((error) => console.error("Error fetching business types:", error));
   }, []);
 
-  // Fetch categories when a business type is selected
-
-  // For fetching categories
   useEffect(() => {
     if (selectedBusinessType) {
       console.log(
@@ -415,11 +1136,6 @@ const ProfilePage = ({ setUser }) => {
       [name]:
         name === "stock" ? Math.max(1, Math.min(100, Number(value))) : value,
     }));
-  };
-
-  // Handle file input for image upload
-  const handleFileChange = (e) => {
-    setNewProduct({ ...newProduct, image: e.target.files[0] });
   };
 
   const handleSubmit = async (e) => {
@@ -533,7 +1249,7 @@ const ProfilePage = ({ setUser }) => {
     try {
       const response = await axios.put(
         `http://localhost:5000/api/products/status/${id}`,
-        { status: !currentStatus ? 1 : 0 }, // Ensure correct format
+        { status: !currentStatus ? 1 : 0 },
         { withCredentials: true }
       );
 
@@ -553,32 +1269,7 @@ const ProfilePage = ({ setUser }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div>
-            <Link
-              to="/dashboard"
-              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
-            >
-              <img src={logo} alt="logo" className="w-10" />
-              <span className="text-primary">CustomHive</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <FaUserCircle className="text-3xl text-primary" />
-            <span className="hidden md:inline text-gray-700">
-              {user?.name || "Guest"}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-
+      <Header setUser={setUser} />
       <div className="flex gap-2 text-primary hover:text-primary/80 transition-colors ml-10 mt-5">
         <Link to="/dashboard" className="flex items-center">
           <h3 className="flex items-center">
@@ -586,6 +1277,12 @@ const ProfilePage = ({ setUser }) => {
             Back to Dashboard
           </h3>
         </Link>
+        <div className="mt-2 inline-block bg-primary/10 text-primary px-3 py-1 ml-[1000px] rounded-full text-sm font-medium">
+          <Link to="orders-received">
+            {" "}
+            <button>Orders Received</button>
+          </Link>
+        </div>
       </div>
 
       <div className="max-w-5xl mx-auto p-6">
@@ -604,11 +1301,79 @@ const ProfilePage = ({ setUser }) => {
                 Seller Account
               </div>
             </div>
-            <div className="ml-auto flex flex-col md:flex-row gap-3 mt-4 md:mt-0">
+            {/* <div className="ml-auto flex flex-col md:flex-row gap-3 mt-4 md:mt-0">
               <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition">
                 <FiEdit size={18} />
                 <span>Edit Profile</span>
               </button>
+            </div> */}
+            <div className="p-6">
+              <button
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition"
+                onClick={() => setIsEditing(true)}
+              >
+                Edit Profile
+              </button>
+
+              {isEditing && (
+                <div className="mt-4 p-4 border rounded-lg shadow-lg bg-white">
+                  <form onSubmit={handleProfileSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-gray-700">Name:</label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-gray-700">
+                        Email (Read-only):
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        readOnly
+                        className="w-full px-3 py-2 border rounded-lg bg-gray-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-gray-700">Phone:</label>
+                      <input
+                        type="text"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-gray-700">
+                        Profile Picture:
+                      </label>
+                      <input
+                        type="file"
+                        name="profile_pic"
+                        onChange={handleFileChange}
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    >
+                      Save Changes
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1253,8 +2018,6 @@ const ProfilePage = ({ setUser }) => {
 };
 
 ProfilePage.propTypes = {
-  user: PropTypes.object,
-  setUser: PropTypes.func.isRequired,
+  setUser: PropTypes.func,
 };
-
 export default ProfilePage;

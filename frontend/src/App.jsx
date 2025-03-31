@@ -20,6 +20,8 @@ import Orders from "./components/Dashboard/Orders";
 import CartCheckout from "./components/Dashboard/CartCheckout";
 import OrderSuccess from "./components/Dashboard/OrderSuccess";
 import ViewOrders from "./components/Dashboard/ViewOrders";
+import Header from "./components/Dashboard/Header";
+import OrdersReceived from "./components/Dashboard/OrdersReceived";
 const App = () => {
   const [user, setUser] = useState(() => {
     // Ensure user is retrieved as an object
@@ -93,7 +95,7 @@ const App = () => {
         <Route path="/profile" element={<ProfilePage setUser={setUser} />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/cart" element={<Cart />} />
-        <Route path="/orders" element={<Orders />} />
+        <Route path="/orders" element={<Orders setUser={setUser} />} />
         <Route
           path="/product/:id"
           element={<ViewDetails setUser={setUser} />}
@@ -113,6 +115,20 @@ const App = () => {
         <Route
           path="/view-orders"
           element={<ViewOrders userEmail={user?.email} setUser={setUser} />}
+        />
+        <Route
+          path="/orders-received"
+          element={<OrdersReceived setUser={setUser} />}
+        />
+        <Route
+          path="/header"
+          element={
+            user ? (
+              <Header user={user} setUser={setUser} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
         />
       </Routes>
     </BrowserRouter>

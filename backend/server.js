@@ -1510,9 +1510,145 @@ app.put("/business-category-requests/approve/:id", async (req, res) => {
   }
 });
 
+// app.post("/api/create-order", async (req, res) => {
+//   try {
+//     const { email, cartItems, total_amount } = req.body;
+
+//     if (!email || !cartItems || cartItems.length === 0 || !total_amount) {
+//       return res.status(400).json({ error: "Missing required fields" });
+//     }
+
+//     console.log("Creating Razorpay order for:", email, total_amount);
+
+//     // Create Razorpay Order
+//     const options = {
+//       amount: Math.round(total_amount * 100), // Convert to paise
+//       currency: "INR",
+//       receipt: `order_${Date.now()}`,
+//     };
+
+//     const razorpayOrder = await razorpay.orders.create(options);
+//     console.log("Razorpay order created:", razorpayOrder);
+
+//     // Insert Order in MySQL
+//     const orderSql = `INSERT INTO orders (razorpay_order_id, email, total_amount, status) VALUES (?, ?, ?, ?)`;
+
+//     db.query(
+//       orderSql,
+//       [razorpayOrder.id, email, total_amount, "pending"],
+//       (err, result) => {
+//         if (err) {
+//           console.error("Database insert error:", err);
+//           return res.status(500).json({ error: "Database error" });
+//         }
+
+//         const mysqlOrderId = result.insertId;
+//         console.log("Order saved in database with ID:", mysqlOrderId);
+
+//         // Insert Products into `order_items` Table
+//         const orderItemsSql = `INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ?`;
+//         const orderItemsValues = cartItems.map((item) => [
+//           mysqlOrderId,
+//           item.product_id,
+//           item.quantity,
+//           (total_amount / cartItems.reduce((acc, i) => acc + i.quantity, 0)) *
+//             item.quantity,
+//         ]);
+
+//         db.query(orderItemsSql, [orderItemsValues], (orderErr) => {
+//           if (orderErr) {
+//             console.error("Error saving order items:", orderErr);
+//             return res.status(500).json({ error: "Database error" });
+//           }
+
+//           console.log("Order items saved successfully");
+
+//           // Prepare customization details for insertion
+//           const customizationSql = `
+//             INSERT INTO customization_details
+//             (order_id, product_id, max_characters, text, image, customization_description)
+//             VALUES ?
+//           `;
+
+//           // Filter out items with customization details
+//           const customizationItems = cartItems.filter(
+//             (item) => item.text || item.customization_description || item.image
+//           );
+
+//           if (customizationItems.length > 0) {
+//             // Prepare customization values
+//             const customizationValues = customizationItems.map((item) => [
+//               mysqlOrderId,
+//               item.product_id,
+//               item.max_characters || null,
+//               item.text || "",
+//               item.image ? item.image.name : null, // Store image name or path
+//               item.customization_description || "",
+//             ]);
+
+//             // Upload image if exists
+//             const uploadPromises = customizationItems
+//               .filter((item) => item.image)
+//               .map(async (item) => {
+//                 try {
+//                   // Implement file upload logic here
+//                   // For example, using multer or another file upload method
+//                   const uploadPath = `/uploads/customizations/${mysqlOrderId}_${item.product_id}_${item.image.name}`;
+//                   // Save file to uploadPath
+//                   return uploadPath;
+//                 } catch (uploadError) {
+//                   console.error("Image upload error:", uploadError);
+//                   return null;
+//                 }
+//               });
+
+//             // Wait for image uploads (if any)
+//             Promise.all(uploadPromises)
+//               .then((uploadedPaths) => {
+//                 // Update customization values with uploaded image paths
+//                 customizationValues.forEach((value, index) => {
+//                   if (uploadedPaths[index]) {
+//                     value[4] = uploadedPaths[index];
+//                   }
+//                 });
+
+//                 // Insert customization details
+//                 db.query(
+//                   customizationSql,
+//                   [customizationValues],
+//                   (customErr) => {
+//                     if (customErr) {
+//                       console.error(
+//                         "Error saving customization details:",
+//                         customErr
+//                       );
+//                       return res.status(500).json({ error: "Database error" });
+//                     }
+//                     console.log("Customizations saved successfully");
+//                     res.json(razorpayOrder);
+//                   }
+//                 );
+//               })
+//               .catch((uploadError) => {
+//                 console.error("Image upload error:", uploadError);
+//                 res.status(500).json({ error: "Image upload failed" });
+//               });
+//           } else {
+//             // No customizations to save
+//             res.json(razorpayOrder);
+//           }
+//         });
+//       }
+//     );
+//   } catch (error) {
+//     console.error("Error creating order:", error);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+
 app.post("/api/create-order", async (req, res) => {
   try {
-    const { email, cartItems, total_amount } = req.body; // `cartItems` contains [{ product_id, quantity, max_characters, text, customization_description }]
+    const { email, cartItems, total_amount } = req.body;
 
     if (!email || !cartItems || cartItems.length === 0 || !total_amount) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -1530,8 +1666,9 @@ app.post("/api/create-order", async (req, res) => {
     const razorpayOrder = await razorpay.orders.create(options);
     console.log("Razorpay order created:", razorpayOrder);
 
-    // Insert Order in MySQL - IMPORTANT: Store razorpay_order_id separately
+    // Insert Order in MySQL
     const orderSql = `INSERT INTO orders (razorpay_order_id, email, total_amount, status) VALUES (?, ?, ?, ?)`;
+
     db.query(
       orderSql,
       [razorpayOrder.id, email, total_amount, "pending"],
@@ -1541,17 +1678,15 @@ app.post("/api/create-order", async (req, res) => {
           return res.status(500).json({ error: "Database error" });
         }
 
-        // Get the auto-generated order_id
         const mysqlOrderId = result.insertId;
         console.log("Order saved in database with ID:", mysqlOrderId);
 
         // Insert Products into `order_items` Table
         const orderItemsSql = `INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ?`;
         const orderItemsValues = cartItems.map((item) => [
-          mysqlOrderId, // Use MySQL auto-generated ID here
+          mysqlOrderId,
           item.product_id,
           item.quantity,
-          // You should fetch the product price here or pass it from frontend
           (total_amount / cartItems.reduce((acc, i) => acc + i.quantity, 0)) *
             item.quantity,
         ]);
@@ -1564,17 +1699,26 @@ app.post("/api/create-order", async (req, res) => {
 
           console.log("Order items saved successfully");
 
-          // Insert Customizations (if any)
+          // Filter out items with customization details
           const customizationItems = cartItems.filter(
-            (item) => item.text || item.customization_description
+            (item) => item.text || item.customization_description || item.image
           );
 
           if (customizationItems.length > 0) {
-            const customizationSql = `INSERT INTO customization_details (order_id, max_characters, text, customization_description) VALUES ?`;
+            // Prepare customization details for insertion
+            const customizationSql = `
+            INSERT INTO customization_details 
+            (order_id, max_characters, text, image, customization_description) 
+            VALUES ?
+          `;
+
             const customizationValues = customizationItems.map((item) => [
-              mysqlOrderId, // Use MySQL auto-generated ID here
+              mysqlOrderId,
               item.max_characters || null,
               item.text || "",
+              item.image
+                ? `/uploads/customizations/${mysqlOrderId}_${item.image.name}`
+                : null,
               item.customization_description || "",
             ]);
 
@@ -1584,11 +1728,12 @@ app.post("/api/create-order", async (req, res) => {
                 return res.status(500).json({ error: "Database error" });
               }
               console.log("Customizations saved successfully");
+              res.json(razorpayOrder);
             });
+          } else {
+            // No customizations to save
+            res.json(razorpayOrder);
           }
-
-          // Return Razorpay order info to the client
-          res.json(razorpayOrder);
         });
       }
     );
@@ -1722,6 +1867,107 @@ ORDER BY o.order_date DESC;
     res.json(results);
   });
 });
+app.delete("/api/cart/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    console.log("Received delete request for email:", email);
+
+    // Execute DELETE query
+    const [result] = await db.execute("DELETE FROM cart WHERE email = ?", [
+      email,
+    ]);
+    console.log("Delete result:", result);
+
+    if (result.affectedRows > 0) {
+      console.log("Cart cleared for:", email);
+      res.json({ success: true, message: "Cart cleared successfully" });
+    } else {
+      console.log("No items found in the cart for:", email);
+      res
+        .status(404)
+        .json({ success: false, message: "No items found in the cart" });
+    }
+  } catch (error) {
+    console.error("Error clearing cart:", error);
+    res.status(500).json({ success: false, message: "Failed to clear cart" });
+  }
+});
+app.get("/getProfile", (req, res) => {
+  if (!req.session.email) {
+    return res.status(401).json({ error: "User not logged in" });
+  }
+
+  const email = req.session.email;
+  db.query(
+    "SELECT name, email, phone, profile_pic FROM tbl_users WHERE email = ?",
+    [email],
+    (err, results) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      if (results.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(results[0]);
+    }
+  );
+});
+
+// Update profile
+app.post("/updateProfile", upload.single("profile_pic"), (req, res) => {
+  if (!req.session.email) {
+    return res.status(401).json({ error: "User not logged in" });
+  }
+
+  const email = req.session.email;
+  const { name, phone } = req.body;
+  const profilePicPath = req.file ? req.file.filename : null;
+
+  const sql = profilePicPath
+    ? "UPDATE tbl_users SET name = ?, phone = ?, profile_pic = ? WHERE email = ?"
+    : "UPDATE tbl_users SET name = ?, phone = ? WHERE email = ?";
+
+  const values = profilePicPath
+    ? [name, phone, profilePicPath, email]
+    : [name, phone, email];
+
+  db.query(sql, values, (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ message: "Profile updated successfully" });
+  });
+});
+app.get("/seller/orders_received", async (req, res) => {
+  const { email } = req.query;
+
+  if (!email) {
+    return res.status(400).json({ error: "Seller email is required" });
+  }
+
+  const query = `
+      SELECT o.order_id, u.name AS customer_name, oi.quantity, 
+             p.product_name, p.price AS product_price, 
+             c.text AS customization_text, c.image AS customization_image, c.customization_description
+      FROM orders o
+      JOIN order_items oi ON o.order_id = oi.order_id
+      JOIN products p ON oi.product_id = p.product_id
+      JOIN users u ON o.email = u.email
+      LEFT JOIN customization_details c ON o.order_id = c.order_id AND oi.product_id = c.product_id
+      WHERE p.email = ?
+      ORDER BY o.order_date DESC;
+  `;
+
+  db.query(query, [email], (err, results) => {
+    if (err) {
+      console.error("Database Error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
+
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

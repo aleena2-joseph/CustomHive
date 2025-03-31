@@ -1,13 +1,14 @@
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import axios from "axios";
-import logo from "../../components/Products/Navbar/logo.png";
-import { FaUserCircle, FaArrowLeft } from "react-icons/fa";
-import PropTypes from "prop-types";
 
-const CartCheckout = ({ setUser: setGlobalUser }) => {
+import { FaArrowLeft } from "react-icons/fa";
+import PropTypes from "prop-types";
+import Header from "./Header";
+
+const CartCheckout = ({ setUser: setUser }) => {
   const navigate = useNavigate();
-  const [user, setLocalUser] = useState(() => {
+  const [user] = useState(() => {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
@@ -19,31 +20,6 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
   const [customizations, setCustomizations] = useState({});
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
-
-  useEffect(() => {
-    if (!user) {
-      axios
-        .get("http://localhost:5000/api/session", { withCredentials: true })
-        .then((response) => {
-          if (response.data.user) {
-            const userData = response.data.user;
-            setLocalUser(userData);
-            localStorage.setItem("user", JSON.stringify(userData));
-            // Update global user state if the setter function exists
-            if (typeof setGlobalUser === "function") {
-              setGlobalUser(userData);
-            }
-          } else {
-            // No user in session, redirect to login
-            navigate("/login");
-          }
-        })
-        .catch((error) => {
-          console.error("Error fetching session:", error);
-          navigate("/login");
-        });
-    }
-  }, [user, setGlobalUser, navigate]);
 
   // Fetch cart items
   useEffect(() => {
@@ -140,22 +116,6 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
     };
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await axios.get("http://localhost:5000/logout", {
-        withCredentials: true,
-      });
-    } catch (error) {
-      console.error("Server logout error:", error);
-    }
-    localStorage.removeItem("user");
-    setLocalUser(null);
-    if (typeof setGlobalUser === "function") {
-      setGlobalUser(null);
-    }
-    navigate("/login");
-  };
-
   const handleQuantityChange = (productId, newQuantity) => {
     // Find product to get max stock
     const product = cartItems.find((item) => item.product_id === productId);
@@ -246,7 +206,6 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
     return basePrice + textSurcharge;
   };
 
-  // Handle the payment process
   const handlePayment = async () => {
     if (!user?.email || cartItems.length === 0) {
       setPaymentError("Your cart is empty or you're not logged in.");
@@ -270,8 +229,7 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
           max_characters: item.max_characters || 50,
           text: customization.text || "",
           customization_description: customization.customization_details || "",
-          // Include price if needed by your backend
-          price: item.Price,
+          price: item.Price, // Include price if needed by the backend
         };
       });
 
@@ -285,6 +243,10 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
         }
       );
 
+      if (!orderResponse.data) {
+        throw new Error("Order creation failed. No response from server.");
+      }
+
       const { id: orderId, amount, currency } = orderResponse.data;
 
       // Initialize Razorpay payment
@@ -295,10 +257,9 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
         name: "CustomHive",
         description: "Purchase from CustomHive",
         order_id: orderId,
-        // Inside the handler function in the Razorpay options
         handler: async function (response) {
-          // Handle successful payment
           try {
+            // Verify the payment with the backend
             const paymentVerification = await axios.post(
               "http://localhost:5000/api/verify-payment",
               {
@@ -309,16 +270,22 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
             );
 
             if (paymentVerification.data.success) {
-              // Clear cart after successful payment
+              // Clear the cart after successful payment
               try {
                 await axios.delete(
-                  `http://localhost:5000/api/cart/${user.email}`
+                  `http://localhost:5000/api/cart/${user.email}`,
+                  {
+                    headers: { "Content-Type": "application/json" },
+                  }
                 );
-                console.log("Cart cleared successfully after payment");
+                console.log("Cart cleared successfully after payment.");
               } catch (clearCartError) {
                 console.error("Failed to clear cart:", clearCartError);
               }
+
               alert("Order Successful!");
+            } else {
+              throw new Error("Payment verification failed.");
             }
           } catch (error) {
             console.error("Payment verification error:", error);
@@ -333,7 +300,7 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
           contact: user.phone || "",
         },
         theme: {
-          color: "primary",
+          color: "#3399cc",
         },
         modal: {
           ondismiss: function () {
@@ -342,6 +309,7 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
         },
       };
 
+      // Open Razorpay payment window
       const razorpayInstance = new window.Razorpay(options);
       razorpayInstance.open();
     } catch (error) {
@@ -384,31 +352,7 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <div className="bg-primary/40 py-3 shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div>
-            <Link
-              to="/dashboard"
-              className="font-bold text-2xl sm:text-3xl flex items-center gap-2"
-            >
-              <img src={logo} alt="logo" className="w-10" />
-              <span className="text-primary">CustomHive</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <FaUserCircle className="text-3xl text-primary" />
-            <span className="hidden md:inline text-gray-700">
-              {user?.name || "Guest"}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="bg-primary text-white py-2 px-4 rounded-full hover:bg-primary/80 transition-all duration-300"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Header setUser={setUser} />
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
@@ -546,61 +490,246 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
                           >
                             Customize
                           </button>
-                          <div className="text-right">
-                            <p className="text-lg font-semibold text-primary">
-                              ₹{getProductTotal(item).toFixed(2)}
-                            </p>
-                            {item.isTextNeeded &&
-                              customizations[item.product_id]?.text?.length >
-                                0 && (
-                                <p className="text-xs text-gray-500">
-                                  Includes ₹
-                                  {calculateTextSurcharge(item).toFixed(2)} for
-                                  text customization
-                                </p>
-                              )}
-                          </div>
+                          {customizingProduct && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                              <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                                <div className="p-6">
+                                  <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold text-primary">
+                                      Customize{" "}
+                                      {customizingProduct.Product_name}
+                                    </h2>
+                                    <button
+                                      onClick={() =>
+                                        setCustomizingProduct(null)
+                                      }
+                                      className="text-gray-500 hover:text-gray-700 text-3xl"
+                                    >
+                                      &times;
+                                    </button>
+                                  </div>
+
+                                  <div className="space-y-6">
+                                    {/* Quantity Control */}
+                                    <div>
+                                      <p className="text-gray-700 mb-2 font-medium">
+                                        Quantity (1-{customizingProduct.stock}):
+                                      </p>
+                                      <div className="flex items-center border border-gray-300 rounded-md w-32">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            decrementQuantity(
+                                              customizingProduct.product_id
+                                            )
+                                          }
+                                          className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                                          disabled={
+                                            (customizations[
+                                              customizingProduct.product_id
+                                            ]?.quantity || 1) <= 1
+                                          }
+                                        >
+                                          -
+                                        </button>
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          max={customizingProduct.stock}
+                                          value={
+                                            customizations[
+                                              customizingProduct.product_id
+                                            ]?.quantity || 1
+                                          }
+                                          onChange={(e) =>
+                                            handleQuantityChange(
+                                              customizingProduct.product_id,
+                                              e.target.value
+                                            )
+                                          }
+                                          className="w-12 text-center border-none focus:ring-0"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            incrementQuantity(
+                                              customizingProduct.product_id
+                                            )
+                                          }
+                                          className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                                          disabled={
+                                            (customizations[
+                                              customizingProduct.product_id
+                                            ]?.quantity || 1) >=
+                                            customizingProduct.stock
+                                          }
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                      {(customizations[
+                                        customizingProduct.product_id
+                                      ]?.quantity || 1) >=
+                                        customizingProduct.stock && (
+                                        <p className="text-xs text-amber-600 mt-1">
+                                          Maximum quantity reached.
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    {customizingProduct.isTextNeeded === 1 && (
+                                      <div>
+                                        <label className="block text-gray-700 mb-2 font-medium">
+                                          Text to Print/Engrave:
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={
+                                            customizations[
+                                              customizingProduct.product_id
+                                            ]?.text || ""
+                                          }
+                                          onChange={(e) =>
+                                            handleCustomizationChange(
+                                              customizingProduct.product_id,
+                                              "text",
+                                              e.target.value
+                                            )
+                                          }
+                                          placeholder="Text you want on your custom product"
+                                          className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                          maxLength={
+                                            customizingProduct.max_characters
+                                              ? customizingProduct.max_characters *
+                                                5
+                                              : 250
+                                          }
+                                        />
+                                        {/* Existing text length and surcharge logic */}
+                                      </div>
+                                    )}
+
+                                    {customizingProduct.isImageNeeded === 1 && (
+                                      <div>
+                                        <label className="block text-gray-700 mb-2 font-medium">
+                                          Upload Image:
+                                        </label>
+                                        <input
+                                          type="file"
+                                          onChange={(e) =>
+                                            handleImageChange(
+                                              customizingProduct.product_id,
+                                              e
+                                            )
+                                          }
+                                          className="border p-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                          accept="image/*"
+                                        />
+                                        {/* Existing image selection logic */}
+                                      </div>
+                                    )}
+
+                                    {/* Customization Details */}
+                                    <div>
+                                      <label className="block text-gray-700 mb-2 font-medium">
+                                        Customization Details:
+                                      </label>
+                                      <textarea
+                                        value={
+                                          customizations[
+                                            customizingProduct.product_id
+                                          ]?.customization_details || ""
+                                        }
+                                        onChange={(e) =>
+                                          handleCustomizationChange(
+                                            customizingProduct.product_id,
+                                            "customization_details",
+                                            e.target.value
+                                          )
+                                        }
+                                        placeholder="Describe how you want your product customized..."
+                                        className="border rounded-md p-2 w-full h-32 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                      ></textarea>
+                                    </div>
+
+                                    {/* Price Breakdown */}
+                                    <div className="bg-gray-50 p-4 rounded-md">
+                                      <div className="flex justify-between items-center text-lg mb-2">
+                                        <span>Base Price:</span>
+                                        <span>
+                                          ₹{customizingProduct.Price.toFixed(2)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-lg mb-2">
+                                        <span>Quantity:</span>
+                                        <span>
+                                          x{" "}
+                                          {customizations[
+                                            customizingProduct.product_id
+                                          ]?.quantity || 1}
+                                        </span>
+                                      </div>
+                                      {customizingProduct.isTextNeeded === 1 &&
+                                        customizations[
+                                          customizingProduct.product_id
+                                        ]?.text?.length > 0 && (
+                                          <div className="flex justify-between items-center text-lg mb-2">
+                                            <span>Text Customization:</span>
+                                            <span>
+                                              +₹
+                                              {calculateTextSurcharge(
+                                                customizingProduct
+                                              ).toFixed(2)}
+                                            </span>
+                                          </div>
+                                        )}
+                                      <div className="flex justify-between items-center text-xl font-bold text-primary border-t pt-2">
+                                        <span>Total:</span>
+                                        <span>
+                                          ₹
+                                          {(
+                                            customizingProduct.Price *
+                                              (customizations[
+                                                customizingProduct.product_id
+                                              ]?.quantity || 1) +
+                                            (customizingProduct.isTextNeeded ===
+                                            1
+                                              ? calculateTextSurcharge(
+                                                  customizingProduct
+                                                )
+                                              : 0)
+                                          ).toFixed(2)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-6 flex justify-end space-x-4">
+                                    <button
+                                      onClick={() =>
+                                        setCustomizingProduct(null)
+                                      }
+                                      className="bg-gray-200 text-gray-700 py-2 px-6 rounded-md hover:bg-gray-300"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        setCustomizingProduct(null)
+                                      }
+                                      className="bg-primary text-white py-2 px-6 rounded-md hover:bg-primary/90"
+                                    >
+                                      Save Customization
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
-
-                  {(customizations[item.product_id]?.text ||
-                    customizations[item.product_id]?.customization_details) && (
-                    <div className="bg-gray-50 p-4 border-t">
-                      <h4 className="text-sm uppercase text-gray-500 mb-2">
-                        Customization Details
-                      </h4>
-                      {customizations[item.product_id]?.text && (
-                        <div className="mb-2">
-                          <span className="text-xs text-gray-500">Text: </span>
-                          <span className="text-sm font-medium">
-                            {customizations[item.product_id].text}
-                          </span>
-                        </div>
-                      )}
-                      {customizations[item.product_id]
-                        ?.customization_details && (
-                        <div>
-                          <span className="text-xs text-gray-500">Notes: </span>
-                          <span className="text-sm">
-                            {
-                              customizations[item.product_id]
-                                .customization_details
-                            }
-                          </span>
-                        </div>
-                      )}
-                      {customizations[item.product_id]?.image && (
-                        <div className="mt-2">
-                          <span className="text-xs text-gray-500">Image: </span>
-                          <span className="text-sm font-medium">
-                            {customizations[item.product_id].image.name}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -643,12 +772,6 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
                     onClick={handlePayment}
                     disabled={isProcessingPayment || cartItems.length === 0}
                   >
-                    {/* {isProcessingPayment ? (
-                      <span className="flex items-center justify-center">
-                        <span className="animate-spin h-5 w-5 mr-3 border-b-2 border-white rounded-full"></span>
-                        Processing...
-                      </span>
-                    ) : ( */}
                     Proceed to Payment
                   </button>
                 </div>
@@ -657,141 +780,6 @@ const CartCheckout = ({ setUser: setGlobalUser }) => {
           </div>
         )}
       </div>
-
-      {/* Customization Modal */}
-      {customizingProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-primary">
-                  Customize {customizingProduct.Product_name}
-                </h2>
-                <button
-                  onClick={() => setCustomizingProduct(null)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  &times;
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* Text customization */}
-                {customizingProduct.isTextNeeded === 1 && (
-                  <div>
-                    <label className="block text-gray-700 mb-2 font-medium">
-                      Text to Print/Engrave:
-                    </label>
-                    <input
-                      type="text"
-                      value={
-                        customizations[customizingProduct.product_id]?.text ||
-                        ""
-                      }
-                      onChange={(e) =>
-                        handleCustomizationChange(
-                          customizingProduct.product_id,
-                          "text",
-                          e.target.value
-                        )
-                      }
-                      placeholder="Text you want on your custom product"
-                      className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      maxLength={
-                        customizingProduct.max_characters
-                          ? customizingProduct.max_characters * 5
-                          : 250
-                      }
-                    />
-                    {customizations[customizingProduct.product_id]?.text
-                      ?.length > 0 && (
-                      <div className="mt-2 text-sm">
-                        <p className="flex justify-between">
-                          <span>
-                            Characters:{" "}
-                            {
-                              customizations[customizingProduct.product_id]
-                                ?.text.length
-                            }
-                          </span>
-                          <span className="text-primary font-medium">
-                            +₹{calculateTextSurcharge(customizingProduct)}
-                          </span>
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {customizingProduct.max_characters
-                            ? `Additional ₹10 charge for every ${customizingProduct.max_characters} characters`
-                            : "Additional ₹10 charge for every 50 characters"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Image upload */}
-                {customizingProduct.isImageNeeded === 1 && (
-                  <div>
-                    <label className="block text-gray-700 mb-2 font-medium">
-                      Upload Image:
-                    </label>
-                    <input
-                      type="file"
-                      onChange={(e) =>
-                        handleImageChange(customizingProduct.product_id, e)
-                      }
-                      className="border p-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      accept="image/*"
-                    />
-                    {customizations[customizingProduct.product_id]?.image && (
-                      <p className="text-sm text-green-600 mt-1">
-                        File selected:{" "}
-                        {
-                          customizations[customizingProduct.product_id].image
-                            .name
-                        }
-                      </p>
-                    )}
-                    <p className="text-sm text-gray-500 mt-1">
-                      Upload an image to be used on your custom product
-                    </p>
-                  </div>
-                )}
-
-                {/* Additional customization details */}
-                <div>
-                  <label className="block text-gray-700 mb-2 font-medium">
-                    Customization Details:
-                  </label>
-                  <textarea
-                    value={
-                      customizations[customizingProduct.product_id]
-                        ?.customization_details || ""
-                    }
-                    onChange={(e) =>
-                      handleCustomizationChange(
-                        customizingProduct.product_id,
-                        "customization_details",
-                        e.target.value
-                      )
-                    }
-                    placeholder="Describe how you want your product customized..."
-                    className="border rounded-md p-2 w-full h-32 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  ></textarea>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setCustomizingProduct(null)}
-                  className="bg-primary text-white py-2 px-6 rounded-md hover:bg-primary/90"
-                >
-                  Save Customization
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
