@@ -439,6 +439,103 @@ app.post("/login", async (req, res) => {
   }
 });
 // Forgot password route
+// app.post("/forgot-password", async (req, res) => {
+//   const { email } = req.body;
+
+//   if (!email) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Email is required",
+//     });
+//   }
+
+//   try {
+//     db.query(
+//       "SELECT * FROM tbl_users WHERE email = ?",
+//       [email],
+//       async (err, results) => {
+//         if (err) {
+//           console.error("Database error:", err);
+//           return res.status(500).json({
+//             success: false,
+//             message: "Server error",
+//           });
+//         }
+
+//         if (results.length === 0) {
+//           return res.status(404).json({
+//             success: false,
+//             message: "No account found with this email",
+//           });
+//         }
+
+//         const resetToken = jwt.sign({ email }, process.env.JWT_SECRET, {
+//           expiresIn: "1h",
+//         });
+
+//         const tokenExpiry = new Date(Date.now() + 3600000);
+
+//         db.query(
+//           "UPDATE tbl_users SET reset_token = ?, token_expiry = ? WHERE email = ?",
+//           [resetToken, tokenExpiry, email],
+//           async (updateErr) => {
+//             if (updateErr) {
+//               console.error("Token update error:", updateErr);
+//               return res.status(500).json({
+//                 success: false,
+//                 message: "Error saving reset token",
+//               });
+//             }
+
+//             const transporter = nodemailer.createTransport({
+//               service: "gmail",
+//               auth: {
+//                 user: process.env.EMAIL_USER,
+//                 pass: process.env.EMAIL_PASS,
+//               },
+//             });
+
+//             const resetLink = `http://localhost:5173/reset-password/${resetToken}`;
+
+//             const mailOptions = {
+//               from: process.env.EMAIL_USER,
+//               to: email,
+//               subject: "Password Reset Request",
+//               html: `
+//                 <h2>Password Reset Request</h2>
+//                 <p>Click the link below to reset your password:</p>
+//                 <a href="${resetLink}">${resetLink}</a>
+//                 <p>This link will expire in 1 hour.</p>
+//                 <p>If you didn't request this, please ignore this email.</p>
+//               `,
+//             };
+
+//             transporter.sendMail(mailOptions, (emailErr) => {
+//               if (emailErr) {
+//                 console.error("Email sending error:", emailErr);
+//                 return res.status(500).json({
+//                   success: false,
+//                   message: "Error sending reset email",
+//                 });
+//               }
+
+//               res.json({
+//                 success: true,
+//                 message: "Password reset link sent to your email",
+//               });
+//             });
+//           }
+//         );
+//       }
+//     );
+//   } catch (error) {
+//     console.error("Forgot password error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//     });
+//   }
+// });
 app.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
 
@@ -487,43 +584,65 @@ app.post("/forgot-password", async (req, res) => {
               });
             }
 
-            const transporter = nodemailer.createTransport({
-              service: "gmail",
-              auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-              },
-            });
+            // Improved error handling for nodemailer
+            try {
+              // Log to verify environment variables are available
+              console.log("Email config setup starting");
 
-            const resetLink = `http://localhost:5173/reset-password/${resetToken}`;
-
-            const mailOptions = {
-              from: process.env.EMAIL_USER,
-              to: email,
-              subject: "Password Reset Request",
-              html: `
-                <h2>Password Reset Request</h2>
-                <p>Click the link below to reset your password:</p>
-                <a href="${resetLink}">${resetLink}</a>
-                <p>This link will expire in 1 hour.</p>
-                <p>If you didn't request this, please ignore this email.</p>
-              `,
-            };
-
-            transporter.sendMail(mailOptions, (emailErr) => {
-              if (emailErr) {
-                console.error("Email sending error:", emailErr);
+              // Check if environment variables are properly set
+              if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+                console.error("Missing email environment variables");
                 return res.status(500).json({
                   success: false,
-                  message: "Error sending reset email",
+                  message: "Email configuration error",
                 });
               }
+
+              const transporter = nodemailer.createTransport({
+                service: "gmail",
+                auth: {
+                  user: process.env.EMAIL_USER,
+                  pass: process.env.EMAIL_PASS,
+                },
+                // Debug options to see more information
+                debug: true,
+                logger: true,
+              });
+
+              // Verify transporter connection before sending
+              await transporter.verify();
+              console.log("Transporter verified successfully");
+
+              const resetLink = `http://localhost:5173/reset-password/${resetToken}`;
+
+              const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: "Password Reset Request",
+                html: `
+                  <h2>Password Reset Request</h2>
+                  <p>Click the link below to reset your password:</p>
+                  <a href="${resetLink}">${resetLink}</a>
+                  <p>This link will expire in 1 hour.</p>
+                  <p>If you didn't request this, please ignore this email.</p>
+                `,
+              };
+
+              // Use promise instead of callback for better error handling
+              const info = await transporter.sendMail(mailOptions);
+              console.log("Email sent successfully:", info.response);
 
               res.json({
                 success: true,
                 message: "Password reset link sent to your email",
               });
-            });
+            } catch (emailErr) {
+              console.error("Email sending error details:", emailErr);
+              return res.status(500).json({
+                success: false,
+                message: `Error sending reset email: ${emailErr.message}`,
+              });
+            }
           }
         );
       }
@@ -536,7 +655,6 @@ app.post("/forgot-password", async (req, res) => {
     });
   }
 });
-
 // Reset password route
 
 app.post("/reset-password/:token", async (req, res) => {
@@ -1496,155 +1614,86 @@ app.get("/business-category-requests", (req, res) => {
     res.json(results);
   });
 });
+
 app.put("/business-category-requests/approve/:id", async (req, res) => {
   const { id } = req.params;
+
   try {
+    // Fetch the requester's email correctly
+    const [result] = await db.query(
+      `SELECT u.email 
+       FROM business_category_requests bcr
+       JOIN business_profile bp ON bcr.profile_id = bp.profile_id
+       JOIN tbl_users u ON bp.email = u.email
+       WHERE bcr.request_id = ?`,
+      [id]
+    );
+
+    if (!result || result.length === 0) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    const email = result[0].email;
+
+    // Approve request
     await db.query(
       "UPDATE business_category_requests SET status = 'approved' WHERE request_id = ?",
       [id]
     );
-    res.json({ message: "Request approved successfully!" });
+
+    // Send approval email
+    await sendEmail(
+      email,
+      "Category Request Approved",
+      "Your category request has been approved. You can now proceed with the next steps."
+    );
+
+    res.json({ message: "Request approved successfully, email sent!" });
   } catch (error) {
     console.error("Error approving request:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
-// app.post("/api/create-order", async (req, res) => {
-//   try {
-//     const { email, cartItems, total_amount } = req.body;
+app.put("/business-category-requests/reject/:id", async (req, res) => {
+  const { id } = req.params;
 
-//     if (!email || !cartItems || cartItems.length === 0 || !total_amount) {
-//       return res.status(400).json({ error: "Missing required fields" });
-//     }
+  try {
+    // Fetch the requester's email correctly
+    const [result] = await db.query(
+      `SELECT u.email 
+       FROM business_category_requests bcr
+       JOIN business_profile bp ON bcr.profile_id = bp.profile_id
+       JOIN tbl_users u ON bp.email = u.email
+       WHERE bcr.request_id = ?`,
+      [id]
+    );
 
-//     console.log("Creating Razorpay order for:", email, total_amount);
+    if (!result || result.length === 0) {
+      return res.status(404).json({ message: "Request not found" });
+    }
 
-//     // Create Razorpay Order
-//     const options = {
-//       amount: Math.round(total_amount * 100), // Convert to paise
-//       currency: "INR",
-//       receipt: `order_${Date.now()}`,
-//     };
+    const email = result[0].email;
 
-//     const razorpayOrder = await razorpay.orders.create(options);
-//     console.log("Razorpay order created:", razorpayOrder);
+    // Reject request
+    await db.query(
+      "UPDATE business_category_requests SET status = 'rejected' WHERE request_id = ?",
+      [id]
+    );
 
-//     // Insert Order in MySQL
-//     const orderSql = `INSERT INTO orders (razorpay_order_id, email, total_amount, status) VALUES (?, ?, ?, ?)`;
+    // Send rejection email
+    await sendEmail(
+      email,
+      "Category Request Rejected",
+      "Unfortunately, your category request has been rejected. Please contact support for more details."
+    );
 
-//     db.query(
-//       orderSql,
-//       [razorpayOrder.id, email, total_amount, "pending"],
-//       (err, result) => {
-//         if (err) {
-//           console.error("Database insert error:", err);
-//           return res.status(500).json({ error: "Database error" });
-//         }
-
-//         const mysqlOrderId = result.insertId;
-//         console.log("Order saved in database with ID:", mysqlOrderId);
-
-//         // Insert Products into `order_items` Table
-//         const orderItemsSql = `INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ?`;
-//         const orderItemsValues = cartItems.map((item) => [
-//           mysqlOrderId,
-//           item.product_id,
-//           item.quantity,
-//           (total_amount / cartItems.reduce((acc, i) => acc + i.quantity, 0)) *
-//             item.quantity,
-//         ]);
-
-//         db.query(orderItemsSql, [orderItemsValues], (orderErr) => {
-//           if (orderErr) {
-//             console.error("Error saving order items:", orderErr);
-//             return res.status(500).json({ error: "Database error" });
-//           }
-
-//           console.log("Order items saved successfully");
-
-//           // Prepare customization details for insertion
-//           const customizationSql = `
-//             INSERT INTO customization_details
-//             (order_id, product_id, max_characters, text, image, customization_description)
-//             VALUES ?
-//           `;
-
-//           // Filter out items with customization details
-//           const customizationItems = cartItems.filter(
-//             (item) => item.text || item.customization_description || item.image
-//           );
-
-//           if (customizationItems.length > 0) {
-//             // Prepare customization values
-//             const customizationValues = customizationItems.map((item) => [
-//               mysqlOrderId,
-//               item.product_id,
-//               item.max_characters || null,
-//               item.text || "",
-//               item.image ? item.image.name : null, // Store image name or path
-//               item.customization_description || "",
-//             ]);
-
-//             // Upload image if exists
-//             const uploadPromises = customizationItems
-//               .filter((item) => item.image)
-//               .map(async (item) => {
-//                 try {
-//                   // Implement file upload logic here
-//                   // For example, using multer or another file upload method
-//                   const uploadPath = `/uploads/customizations/${mysqlOrderId}_${item.product_id}_${item.image.name}`;
-//                   // Save file to uploadPath
-//                   return uploadPath;
-//                 } catch (uploadError) {
-//                   console.error("Image upload error:", uploadError);
-//                   return null;
-//                 }
-//               });
-
-//             // Wait for image uploads (if any)
-//             Promise.all(uploadPromises)
-//               .then((uploadedPaths) => {
-//                 // Update customization values with uploaded image paths
-//                 customizationValues.forEach((value, index) => {
-//                   if (uploadedPaths[index]) {
-//                     value[4] = uploadedPaths[index];
-//                   }
-//                 });
-
-//                 // Insert customization details
-//                 db.query(
-//                   customizationSql,
-//                   [customizationValues],
-//                   (customErr) => {
-//                     if (customErr) {
-//                       console.error(
-//                         "Error saving customization details:",
-//                         customErr
-//                       );
-//                       return res.status(500).json({ error: "Database error" });
-//                     }
-//                     console.log("Customizations saved successfully");
-//                     res.json(razorpayOrder);
-//                   }
-//                 );
-//               })
-//               .catch((uploadError) => {
-//                 console.error("Image upload error:", uploadError);
-//                 res.status(500).json({ error: "Image upload failed" });
-//               });
-//           } else {
-//             // No customizations to save
-//             res.json(razorpayOrder);
-//           }
-//         });
-//       }
-//     );
-//   } catch (error) {
-//     console.error("Error creating order:", error);
-//     res.status(500).json({ error: "Server error" });
-//   }
-// });
+    res.json({ message: "Request rejected successfully, email sent!" });
+  } catch (error) {
+    console.error("Error rejecting request:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
 
 app.post("/api/create-order", async (req, res) => {
   try {
@@ -1892,28 +1941,6 @@ app.delete("/api/cart/:email", async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to clear cart" });
   }
 });
-app.get("/getProfile", (req, res) => {
-  if (!req.session.email) {
-    return res.status(401).json({ error: "User not logged in" });
-  }
-
-  const email = req.session.email;
-  db.query(
-    "SELECT name, email, phone, profile_pic FROM tbl_users WHERE email = ?",
-    [email],
-    (err, results) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      if (results.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      res.json(results[0]);
-    }
-  );
-});
-
-// Update profile
 app.post("/updateProfile", upload.single("profile_pic"), (req, res) => {
   if (!req.session.email) {
     return res.status(401).json({ error: "User not logged in" });
@@ -1938,36 +1965,139 @@ app.post("/updateProfile", upload.single("profile_pic"), (req, res) => {
     res.json({ message: "Profile updated successfully" });
   });
 });
-app.get("/seller/orders_received", async (req, res) => {
-  const { email } = req.query;
+app.post("/reviews", (req, res) => {
+  const { orderId, rating, description } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ error: "Seller email is required" });
-  }
+  db.query(
+    "INSERT INTO reviews (order_item_id, rating, description, created_at) VALUES (?, ?, ?, NOW())",
+    [orderId, rating, description],
+    (err, result) => {
+      if (err) return res.json({ error: err });
+      res.json({ message: "Review added successfully!" });
+    }
+  );
+});
+// Updated backend endpoint for fetching orders received by sellers with customization details
+app.get("/api/seller/received-orders/:email", (req, res) => {
+  const sellerEmail = req.params.email;
 
-  const query = `
-      SELECT o.order_id, u.name AS customer_name, oi.quantity, 
-             p.product_name, p.price AS product_price, 
-             c.text AS customization_text, c.image AS customization_image, c.customization_description
-      FROM orders o
-      JOIN order_items oi ON o.order_id = oi.order_id
-      JOIN products p ON oi.product_id = p.product_id
-      JOIN users u ON o.email = u.email
-      LEFT JOIN customization_details c ON o.order_id = c.order_id AND oi.product_id = c.product_id
-      WHERE p.email = ?
-      ORDER BY o.order_date DESC;
+  const sql = `
+    SELECT
+      o.order_id,
+      o.order_date,
+      o.status AS order_status,
+      oi.order_item_id,
+      oi.quantity,
+      oi.price AS item_price,
+      p.product_id,
+      p.product_name,
+      p.product_image,
+      u.email AS customer_email,
+      u.name AS customer_name,
+      cd.customization_id,
+      cd.max_characters,
+      cd.text,
+      cd.image AS customization_image,
+      cd.customization_description
+    FROM
+      orders o
+    JOIN
+      order_items oi ON o.order_id = oi.order_id
+    JOIN
+      products p ON oi.product_id = p.product_id
+    JOIN
+      tbl_users u ON o.email = u.email
+    LEFT JOIN
+      customization_details cd ON o.order_id = cd.order_id
+    WHERE
+      p.email = ?
+    ORDER BY
+      o.order_date DESC
+    LIMIT 25;
   `;
 
-  db.query(query, [email], (err, results) => {
+  db.query(sql, [sellerEmail], (err, results) => {
     if (err) {
-      console.error("Database Error:", err);
-      return res.status(500).json({ error: "Database error" });
+      console.error("Error fetching seller orders:", err);
+      return res.status(500).json({ error: "Failed to fetch orders" });
     }
     res.json(results);
   });
 });
+// app.get("/api/seller/received-orders/:email", (req, res) => {
+//   const sellerEmail = req.params.email;
 
+//   const sql = `
+//     SELECT
+//       o.order_id,
+//       o.order_date,
+//       o.status AS order_status,
+//       oi.order_item_id,
+//       oi.quantity,
+//       oi.price AS item_price,
+//       p.product_id,
+//       p.product_name,
+//       p.product_image,
+//       u.email AS customer_email,
+//       u.name AS customer_name
+//     FROM
+//       orders o
+//     JOIN
+//       order_items oi ON o.order_id = oi.order_id
+//     JOIN
+//       products p ON oi.product_id = p.product_id
+//     JOIN
+//       tbl_users u ON o.email = u.email
+//     WHERE
+//       p.email = ?
+//     ORDER BY
+//       o.order_date DESC
+//     LIMIT 25;
+//   `;
 
+//   db.query(sql, [sellerEmail], (err, results) => {
+//     if (err) {
+//       console.error("Error fetching seller orders:", err);
+//       return res.status(500).json({ error: "Failed to fetch orders" });
+//     }
+//     res.json(results);
+//   });
+// });
+// Endpoint for updating order status
+app.put("/api/orders/update-status", (req, res) => {
+  const { orderId, status } = req.body;
+
+  if (!orderId || !status) {
+    return res.status(400).json({ error: "Order ID and status are required" });
+  }
+
+  const validStatuses = [
+    "pending",
+    "processing",
+    "shipped",
+    "delivered",
+    "completed",
+    "cancelled",
+  ];
+  if (!validStatuses.includes(status.toLowerCase())) {
+    return res.status(400).json({ error: "Invalid status value" });
+  }
+
+  const sql = "UPDATE orders SET status = ? WHERE order_id = ?";
+
+  db.query(sql, [status, orderId], (err, result) => {
+    if (err) {
+      console.error("Error updating order status:", err);
+      return res.status(500).json({ error: "Failed to update order status" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    res.json({ message: "Order status updated successfully" });
+  });
+});
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

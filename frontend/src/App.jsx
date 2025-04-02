@@ -94,7 +94,7 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/profile" element={<ProfilePage setUser={setUser} />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
-        <Route path="/cart" element={<Cart />} />
+        <Route path="/cart" element={<Cart setUser={setUser} />} />
         <Route path="/orders" element={<Orders setUser={setUser} />} />
         <Route
           path="/product/:id"
@@ -114,12 +114,25 @@ const App = () => {
         />
         <Route
           path="/view-orders"
-          element={<ViewOrders userEmail={user?.email} setUser={setUser} />}
+          element={
+            user ? (
+              <ViewOrders userEmail={user.email} setUser={setUser} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
         />
         <Route
           path="/orders-received"
-          element={<OrdersReceived setUser={setUser} />}
+          element={
+            <OrdersReceived
+              user={user}
+              setUser={setUser}
+              userEmail={user?.email || ""}
+            />
+          }
         />
+
         <Route
           path="/header"
           element={

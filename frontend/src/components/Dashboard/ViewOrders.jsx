@@ -7,6 +7,8 @@ import {
   FaShoppingBag,
   FaEye,
   FaFileInvoice,
+  FaStar,
+  FaRegStar,
 } from "react-icons/fa";
 
 import Header from "./Header";
@@ -15,6 +17,14 @@ const ViewOrders = ({ userEmail, setUser }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingData, setRatingData] = useState({
+    orderId: null,
+    rating: 0,
+    comment: "",
+  });
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState({ type: "", text: "" });
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -42,6 +52,72 @@ const ViewOrders = ({ userEmail, setUser }) => {
     setSelectedOrder(null);
   };
 
+  const handleRateProduct = (orderId) => {
+    setRatingData({
+      orderId,
+      rating: 0,
+      comment: "",
+    });
+    setShowRatingModal(true);
+    setSubmitMessage({ type: "", text: "" });
+  };
+
+  const handleStarClick = (rating) => {
+    setRatingData({ ...ratingData, rating });
+  };
+
+  const handleCommentChange = (e) => {
+    setRatingData({ ...ratingData, comment: e.target.value });
+  };
+
+  const handleSubmitRating = async () => {
+    if (ratingData.rating === 0) {
+      setSubmitMessage({
+        type: "error",
+        text: "Please select a rating",
+      });
+      return;
+    }
+
+    try {
+      setSubmitLoading(true);
+      const response = await axios.post("http://localhost:5000/reviews", {
+        orderId: ratingData.orderId,
+        rating: ratingData.rating,
+        comment: ratingData.comment,
+      });
+
+      setSubmitMessage({
+        type: "success",
+        text: response.data.message || "Review submitted successfully!",
+      });
+
+      // Close the modal after 2 seconds
+      setTimeout(() => {
+        setShowRatingModal(false);
+        setSubmitMessage({ type: "", text: "" });
+      }, 2000);
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      setSubmitMessage({
+        type: "error",
+        text: error.response?.data?.error || "Failed to submit review",
+      });
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleCloseRatingModal = () => {
+    setShowRatingModal(false);
+    setRatingData({
+      orderId: null,
+      rating: 0,
+      comment: "",
+    });
+    setSubmitMessage({ type: "", text: "" });
+  };
+
   const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
       case "success":
@@ -57,6 +133,27 @@ const ViewOrders = ({ userEmail, setUser }) => {
       default:
         return "bg-gray-500";
     }
+  };
+
+  // Render star rating component
+  const StarRating = ({ rating, onStarClick }) => {
+    return (
+      <div className="flex items-center space-x-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            onClick={() => onStarClick(star)}
+            className="focus:outline-none"
+          >
+            {star <= rating ? (
+              <FaStar className="text-yellow-400 text-xl" />
+            ) : (
+              <FaRegStar className="text-gray-400 text-xl hover:text-yellow-300" />
+            )}
+          </button>
+        ))}
+      </div>
+    );
   };
 
   if (loading) {
@@ -154,13 +251,20 @@ const ViewOrders = ({ userEmail, setUser }) => {
                           {order.status}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-4 text-center flex justify-center space-x-2">
                         <button
                           onClick={() => handleViewDetails(order)}
                           className="text-primary hover:text-primary/80 transition-colors"
                           title="View Details"
                         >
                           <FaEye className="inline text-lg" />
+                        </button>
+                        <button
+                          onClick={() => handleRateProduct(order.order_id)}
+                          className="text-yellow-500 hover:text-yellow-600 transition-colors"
+                          title="Rate Product"
+                        >
+                          <FaStar className="inline text-lg" />
                         </button>
                       </td>
                     </tr>
@@ -217,8 +321,6 @@ const ViewOrders = ({ userEmail, setUser }) => {
                   <h4 className="font-bold mb-3">Product Details</h4>
                   <div className="bg-gray-100 p-4 rounded-md">
                     <div className="flex items-start">
-                      {/* image */}
-                      {/* <div className="w-16 h-16 bg-gray-200 rounded-md mr-4 flex-shrink-0"></div> */}
                       <div className="w-16 h-16 bg-gray-200 rounded-md mr-4 flex-shrink-0">
                         {selectedOrder.product_image ? (
                           <img
@@ -266,10 +368,6 @@ const ViewOrders = ({ userEmail, setUser }) => {
                         ).toFixed(2)}
                       </span>
                     </div>
-                    {/* <div className="flex justify-between">
-                      <span>Shipping</span>
-                      <span>₹0.00</span>
-                    </div> */}
                     <div className="border-t pt-2 mt-2">
                       <div className="flex justify-between font-bold">
                         <span>Total</span>
@@ -278,13 +376,6 @@ const ViewOrders = ({ userEmail, setUser }) => {
                     </div>
                   </div>
                 </div>
-                {/* <div className="border-t pt-4 mt-4">
-                  <h4 className="font-bold mb-3">Shipping Information</h4>
-                  <p className="text-gray-600">
-                    {selectedOrder.shipping_address ||
-                      "Default Shipping Address"}
-                  </p>
-                </div> */}
                 <div className="mt-6 flex justify-end space-x-4">
                   <button
                     className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
@@ -292,8 +383,97 @@ const ViewOrders = ({ userEmail, setUser }) => {
                   >
                     Close
                   </button>
+                  <button
+                    onClick={() => {
+                      handleCloseDetails();
+                      handleRateProduct(selectedOrder.order_id);
+                    }}
+                    className="px-4 py-2 bg-yellow-500 text-white hover:bg-yellow-600 rounded-md transition-colors"
+                  >
+                    Rate Product
+                  </button>
                   <button className="px-4 py-2 bg-primary text-white hover:bg-primary/80 rounded-md transition-colors">
                     Download Invoice
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rating Modal */}
+      {showRatingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-2xl font-bold text-primary">
+                  Rate Your Purchase
+                </h3>
+                <button
+                  onClick={handleCloseRatingModal}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  &times;
+                </button>
+              </div>
+              <div className="border-t pt-4">
+                <div className="mb-6">
+                  <p className="text-gray-600 mb-3">
+                    How would you rate your experience with this product?
+                  </p>
+                  <div className="flex justify-center mb-4">
+                    <StarRating
+                      rating={ratingData.rating}
+                      onStarClick={handleStarClick}
+                    />
+                  </div>
+                </div>
+                <div className="mb-6">
+                  <label className="block text-gray-700 mb-2">
+                    Share your feedback (optional)
+                  </label>
+                  <textarea
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    rows="4"
+                    placeholder="Tell us what you liked or didn't like about the product..."
+                    value={ratingData.comment}
+                    onChange={handleCommentChange}
+                  ></textarea>
+                </div>
+                {submitMessage.text && (
+                  <div
+                    className={`mb-4 p-3 rounded-md ${
+                      submitMessage.type === "error"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-green-100 text-green-700"
+                    }`}
+                  >
+                    {submitMessage.text}
+                  </div>
+                )}
+                <div className="flex justify-end space-x-4">
+                  <button
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    onClick={handleCloseRatingModal}
+                    disabled={submitLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-primary text-white hover:bg-primary/80 rounded-md transition-colors flex items-center"
+                    onClick={handleSubmitRating}
+                    disabled={submitLoading}
+                  >
+                    {submitLoading ? (
+                      <>
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent align-[-0.125em] mr-2"></span>
+                        Submitting...
+                      </>
+                    ) : (
+                      "Submit Review"
+                    )}
                   </button>
                 </div>
               </div>
@@ -368,9 +548,12 @@ const ViewOrders = ({ userEmail, setUser }) => {
 };
 
 ViewOrders.propTypes = {
-  userEmail: PropTypes.string.isRequired,
+  rating: PropTypes.number.isRequired,
+  onStarClick: PropTypes.func.isRequired,
 };
+
 ViewOrders.propTypes = {
+  userEmail: PropTypes.string.isRequired,
   setUser: PropTypes.func,
 };
 
