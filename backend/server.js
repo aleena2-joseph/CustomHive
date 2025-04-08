@@ -1615,86 +1615,6 @@ app.get("/business-category-requests", (req, res) => {
   });
 });
 
-app.put("/business-category-requests/approve/:id", async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    // Fetch the requester's email correctly
-    const [result] = await db.query(
-      `SELECT u.email 
-       FROM business_category_requests bcr
-       JOIN business_profile bp ON bcr.profile_id = bp.profile_id
-       JOIN tbl_users u ON bp.email = u.email
-       WHERE bcr.request_id = ?`,
-      [id]
-    );
-
-    if (!result || result.length === 0) {
-      return res.status(404).json({ message: "Request not found" });
-    }
-
-    const email = result[0].email;
-
-    // Approve request
-    await db.query(
-      "UPDATE business_category_requests SET status = 'approved' WHERE request_id = ?",
-      [id]
-    );
-
-    // Send approval email
-    await sendEmail(
-      email,
-      "Category Request Approved",
-      "Your category request has been approved. You can now proceed with the next steps."
-    );
-
-    res.json({ message: "Request approved successfully, email sent!" });
-  } catch (error) {
-    console.error("Error approving request:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
-app.put("/business-category-requests/reject/:id", async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    // Fetch the requester's email correctly
-    const [result] = await db.query(
-      `SELECT u.email 
-       FROM business_category_requests bcr
-       JOIN business_profile bp ON bcr.profile_id = bp.profile_id
-       JOIN tbl_users u ON bp.email = u.email
-       WHERE bcr.request_id = ?`,
-      [id]
-    );
-
-    if (!result || result.length === 0) {
-      return res.status(404).json({ message: "Request not found" });
-    }
-
-    const email = result[0].email;
-
-    // Reject request
-    await db.query(
-      "UPDATE business_category_requests SET status = 'rejected' WHERE request_id = ?",
-      [id]
-    );
-
-    // Send rejection email
-    await sendEmail(
-      email,
-      "Category Request Rejected",
-      "Unfortunately, your category request has been rejected. Please contact support for more details."
-    );
-
-    res.json({ message: "Request rejected successfully, email sent!" });
-  } catch (error) {
-    console.error("Error rejecting request:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
 app.post("/api/create-order", async (req, res) => {
   try {
     const { email, cartItems, total_amount } = req.body;
@@ -2098,6 +2018,176 @@ app.put("/api/orders/update-status", (req, res) => {
     res.json({ message: "Order status updated successfully" });
   });
 });
+
+const transporter = nodemailer.createTransport({
+  service: "gmail", // or your email service
+  auth: {
+    user: process.env.EMAIL_USER, // use environment variables for credentials
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+app.get("/api/category-requests", (req, res) => {
+  const query = `
+    SELECT bcr.request_id, bcr.profile_id, bcr.requested_business_type, 
+           bcr.requested_category, bcr.requested_subcategory, bcr.status, 
+           bcr.created_at, u.email 
+    FROM business_category_requests bcr
+    JOIN business_profile bp ON bcr.profile_id = bp.profile_id
+    JOIN tbl_users u ON bp.email = u.email
+    WHERE bcr.status = 'pending'
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching category requests:", err);
+      return res
+        .status(500)
+        .json({ error: "Failed to fetch category requests" });
+    }
+    res.json(results);
+  });
+});
+
+app.post("/api/category-requests/:requestId/:action", (req, res) => {
+  const { requestId, action } = req.params;
+
+  if (action !== "approve" && action !== "reject") {
+    return res.status(400).json({ success: false, error: "Invalid action" });
+  }
+
+  const requestQuery = `
+    SELECT bcr.request_id, bcr.profile_id, bcr.requested_business_type, 
+           bcr.requested_category, bcr.requested_subcategory, bcr.status, 
+           bcr.created_at, u.email
+    FROM business_category_requests bcr
+    JOIN business_profile bp ON bcr.profile_id = bp.profile_id
+    JOIN tbl_users u ON bp.email = u.email
+    WHERE bcr.request_id = ?
+  `;
+
+  db.query(requestQuery, [requestId], (err, requestResults) => {
+    if (err) {
+      console.error("Error fetching request details:", err);
+      return res.status(500).json({ success: false, error: "Database error" });
+    }
+
+    if (requestResults.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Request not found" });
+    }
+
+    const request = requestResults[0];
+
+    db.query(
+      "UPDATE business_category_requests SET status = ? WHERE request_id = ?",
+      [action === "approve" ? "approved" : "rejected", requestId],
+      (err) => {
+        if (err) {
+          console.error("Error updating request status:", err);
+          return res
+            .status(500)
+            .json({ success: false, error: "Database error" });
+        }
+
+        const actions = [];
+
+        if (action === "approve") {
+          if (request.requested_business_type) {
+            actions.push([
+              "INSERT INTO business_types (type_name) VALUES (?)",
+              [request.requested_business_type],
+            ]);
+          } else if (request.requested_category) {
+            actions.push([
+              "INSERT INTO categories (category_name) VALUES (?)",
+              [request.requested_category],
+            ]);
+          } else if (request.requested_subcategory) {
+            actions.push([
+              "INSERT INTO subcategories (subcategory_name) VALUES (?)",
+              [request.requested_subcategory],
+            ]);
+          }
+        }
+
+        // Execute any insert query if present
+        if (actions.length > 0) {
+          const [query, params] = actions[0];
+          db.query(query, params, (err) => {
+            if (err) {
+              console.error("Error inserting category/type:", err);
+              return res
+                .status(500)
+                .json({ success: false, error: "Insert failed" });
+            }
+
+            sendMailAndRespond();
+          });
+        } else {
+          sendMailAndRespond();
+        }
+
+        function sendMailAndRespond() {
+          const requestType = request.requested_business_type
+            ? "Business Type"
+            : request.requested_category
+            ? "Category"
+            : "Subcategory";
+
+          const requestValue =
+            request.requested_business_type ||
+            request.requested_category ||
+            request.requested_subcategory;
+
+          const emailSubject = `CustomHive: Your ${requestType} Request ${
+            action === "approve" ? "Approved" : "Rejected"
+          }`;
+
+          const emailBody = `
+            <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+              <h2>CustomHive Category Request Update</h2>
+              <p>Dear User,</p>
+              <p>Your request to add the following ${requestType.toLowerCase()} has been <strong>${
+            action === "approve" ? "approved" : "rejected"
+          }</strong>:</p>
+              <p><strong>${requestValue}</strong></p>
+              ${
+                action === "approve"
+                  ? `<p>The ${requestType.toLowerCase()} has been added to our system and is now available for use.</p>`
+                  : `<p>If you believe this was in error or have questions, please contact our support team.</p>`
+              }
+              <p>Thank you for helping us improve CustomHive!</p>
+              <p>Best regards,<br>The CustomHive Team</p>
+            </div>
+          `;
+
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: request.email,
+            subject: emailSubject,
+            html: emailBody,
+          };
+
+          transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+              console.error("Error sending email:", error);
+              return res
+                .status(500)
+                .json({ success: false, error: "Failed to send email" });
+            }
+            res.json({
+              success: true,
+              message: `Request ${action}d successfully`,
+            });
+          });
+        }
+      }
+    );
+  });
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

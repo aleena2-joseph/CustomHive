@@ -12,8 +12,13 @@ const Overview = () => {
   const [productCount, setProductCount] = useState(0);
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const fetchAllData = () => {
     // Fetch all data in parallel
     Promise.all([
       axios.get("http://localhost:5000/api/session", { withCredentials: true }),
@@ -21,7 +26,7 @@ const Overview = () => {
       axios.get("http://localhost:5000/api/business-types"),
       axios.get("http://localhost:5000/api/business-profile/owners-count"),
       axios.get("http://localhost:5000/api/products/count"),
-      axios.get("http://localhost:5000/business-category-requests"),
+      axios.get("http://localhost:5000/api/category-requests"), // Add this endpoint to fetch requests
     ])
       .then(
         ([
@@ -41,34 +46,30 @@ const Overview = () => {
         }
       )
       .catch((err) => console.error("Error fetching data:", err));
-  }, []);
-
-  // Approve category request
-  const handleApprove = async (id) => {
-    try {
-      const response = await axios.put(
-        `http://localhost:5000/business-category-requests/approve/${id}`
-      );
-      console.log("Request approved:", response.data);
-    } catch (error) {
-      console.error("Error approving request:", error);
-    }
   };
-  // Reject category request
-  const handleReject = async (id) => {
-    try {
-      const response = await axios.put(
-        `http://localhost:5000/business-category-requests/reject/${id}`
-      );
-      console.log("Request rejected:", response.data);
 
-      // Optionally, update the state to remove the rejected request from the list
-      setRequests((prevRequests) =>
-        prevRequests.filter((req) => req.request_id !== id)
-      );
-    } catch (error) {
-      console.error("Error rejecting request:", error);
-    }
+  const handleRequestAction = (requestId, action) => {
+    setLoading(true);
+    axios
+      .post(
+        `http://localhost:5000/api/category-requests/${requestId}/${action}`
+      )
+      .then((response) => {
+        if (response.data.success) {
+          // Update the requests list after successful action
+          fetchAllData();
+          alert(`Request ${action}d successfully`);
+        } else {
+          alert("Error processing request");
+        }
+      })
+      .catch((error) => {
+        console.error(`Error ${action}ing request:`, error);
+        alert(`Failed to ${action} request`);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   return (
@@ -161,18 +162,26 @@ const Overview = () => {
                   <p className="text-sm text-gray-600">
                     Requested by: {req.email}
                   </p>
-                  <button
-                    className="mt-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
-                    onClick={() => handleApprove(req.request_id)}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
-                    onClick={() => handleReject(req.request_id)}
-                  >
-                    Reject
-                  </button>
+                  <div className="flex space-x-2 mt-2">
+                    <button
+                      className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition disabled:opacity-50"
+                      onClick={() =>
+                        handleRequestAction(req.request_id, "approve")
+                      }
+                      disabled={loading}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition disabled:opacity-50"
+                      onClick={() =>
+                        handleRequestAction(req.request_id, "reject")
+                      }
+                      disabled={loading}
+                    >
+                      Reject
+                    </button>
+                  </div>
                 </div>
               ))
             ) : (

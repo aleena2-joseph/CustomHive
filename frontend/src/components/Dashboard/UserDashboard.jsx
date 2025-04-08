@@ -199,6 +199,12 @@ const UserDashboard = ({ user, setUser }) => {
             <Link to="/cart">
               <FaCartShopping className="text-3xl text-primary" />
             </Link>
+            <a
+              href="/profile"
+              className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+            >
+              View Profile
+            </a>
 
             {/* User Profile Dropdown */}
             <div className="relative flex items-center gap-2">
