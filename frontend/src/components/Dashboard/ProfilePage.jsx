@@ -3,13 +3,7 @@ import axios from "axios";
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
 import { FaUserCircle, FaArrowLeft } from "react-icons/fa";
-import {
-  FiPlusCircle,
-  FiDollarSign,
-  FiPackage,
-  FiTag,
-  FiEdit,
-} from "react-icons/fi";
+import { FiPlusCircle, FiPackage, FiTag } from "react-icons/fi";
 import { RiFunctionAddLine } from "react-icons/ri";
 import Header from "./Header";
 
@@ -558,10 +552,10 @@ const ProfilePage = ({ setUser }) => {
               </div>
             </div>
             <div className="ml-auto flex flex-col md:flex-row gap-3 mt-4 md:mt-0">
-              <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition">
+              {/* <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition">
                 <FiEdit size={18} />
                 <span>Edit Profile</span>
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
@@ -686,7 +680,7 @@ const ProfilePage = ({ setUser }) => {
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <FiDollarSign className="text-gray-400" />
+                      ₹
                     </div>
                     <input
                       type="number"
